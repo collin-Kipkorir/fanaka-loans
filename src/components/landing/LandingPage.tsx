@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Zap, Smartphone, Shield, CheckCircle } from 'lucide-react';
+import { LoanApprovalToast } from './LoanApprovalToast';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -10,6 +11,7 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   return (
     <div className="min-h-screen bg-gradient-hero text-foreground relative overflow-hidden">
+      <LoanApprovalToast />
       {/* Animated background stars/particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="stars-container">

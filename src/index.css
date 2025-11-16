@@ -33,6 +33,10 @@ All colors MUST be HSL.
     /* Success Green */
     --success: 145 70% 45%;
     --success-foreground: 0 0% 98%;
+    
+    /* M-Pesa Green */
+    --mpesa-green: 145 100% 37%;
+    --mpesa-green-foreground: 0 0% 100%;
 
     /* Warning/Pending Orange */
     --warning: 38 92% 50%;
