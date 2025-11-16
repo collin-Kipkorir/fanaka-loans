@@ -75,6 +75,10 @@ export default {
 				warning: {
 					DEFAULT: 'hsl(var(--warning))',
 					foreground: 'hsl(var(--warning-foreground))'
+				},
+				mpesa: {
+					DEFAULT: 'hsl(var(--mpesa-green))',
+					foreground: 'hsl(var(--mpesa-green-foreground))'
 				}
 			},
 			backgroundImage: {
