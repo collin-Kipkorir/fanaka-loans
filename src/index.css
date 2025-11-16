@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fanaka Loans Design System - Kenyan-inspired fintech colors
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 150 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 25% 15%;
+
+    /* Kenyan Green - Primary Brand Color */
+    --primary: 140 60% 20%;
+    --primary-foreground: 0 0% 98%;
+    --primary-light: 140 55% 35%;
+    --primary-dark: 140 70% 15%;
+
+    /* Golden Yellow - Secondary/Accent */
+    --secondary: 45 85% 60%;
+    --secondary-foreground: 45 25% 15%;
+    --gold: 43 90% 55%;
+    --gold-light: 43 85% 70%;
+
+    /* Success Green */
+    --success: 145 70% 45%;
+    --success-foreground: 0 0% 98%;
+
+    /* Warning/Pending Orange */
+    --warning: 35 85% 55%;
+    --warning-foreground: 35 25% 15%;
+
+    /* Error/Rejected Red */
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Neutral Grays */
+    --muted: 150 10% 96%;
+    --muted-foreground: 150 15% 45%;
+    --accent: 150 10% 94%;
+    --accent-foreground: 150 25% 20%;
+
+    --border: 150 15% 88%;
+    --input: 150 15% 92%;
+    --ring: 140 60% 20%;
+
+    --radius: 0.75rem;
+
+    /* Custom Design Tokens */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    --gradient-gold: linear-gradient(135deg, hsl(var(--gold)), hsl(var(--gold-light)));
+    --gradient-success: linear-gradient(135deg, hsl(var(--success)), hsl(var(--primary-light)));
+    --gradient-warning: linear-gradient(135deg, hsl(var(--warning)), hsl(var(--gold)));
+    --shadow-soft: 0 4px 20px hsl(var(--primary) / 0.1);
+    --shadow-card: 0 2px 10px hsl(var(--foreground) / 0.05);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Mobile-first Typography */
+  html {
+    font-size: 14px; /* Base font size for mobile */
+  }
+
+  @media (min-width: 640px) {
+    html {
+      font-size: 16px; /* Standard size for tablets and up */
+    }
+  }
+
+  /* Heading sizes optimized for mobile */
+  h1 {
+    @apply text-xl sm:text-2xl font-bold;
+  }
+
+  h2 {
+    @apply text-lg sm:text-xl font-bold;
+  }
+
+  h3 {
+    @apply text-base sm:text-lg font-semibold;
+  }
+
+  /* Button text optimization */
+  button {
+    @apply text-sm sm:text-base;
+  }
+
+  /* Card text optimization */
+  .card-title {
+    @apply text-base sm:text-lg;
+  }
+}
