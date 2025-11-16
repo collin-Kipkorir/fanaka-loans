@@ -79,12 +79,14 @@ export default {
 			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-hero': 'var(--gradient-hero)',
 				'gradient-gold': 'var(--gradient-gold)',
 				'gradient-success': 'var(--gradient-success)',
 				'gradient-warning': 'var(--gradient-warning)'
 			},
 			boxShadow: {
 				'soft': 'var(--shadow-soft)',
+				'glow': 'var(--shadow-glow)',
 				'card': 'var(--shadow-card)'
 			},
 			borderRadius: {
