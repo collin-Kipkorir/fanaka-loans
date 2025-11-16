@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { LandingPage } from '@/components/landing/LandingPage';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 import { RegisterScreen } from '@/components/auth/RegisterScreen';
 import { OTPScreen } from '@/components/auth/OTPScreen';
@@ -10,18 +11,18 @@ import { CollateralPayment } from '@/components/payment/CollateralPayment';
 import { LoanHistory } from '@/components/loan/LoanHistory';
 import { Notification } from '@/components/ui/notification';
 
-type Screen = 'login' | 'register' | 'otp' | 'dashboard' | 'apply' | 'repayment' | 'collateral-payment' | 'history';
+type Screen = 'landing' | 'login' | 'register' | 'otp' | 'dashboard' | 'apply' | 'repayment' | 'collateral-payment' | 'history';
 
 const Index = () => {
   const { user, logout } = useAuth();
-  const [currentScreen, setCurrentScreen] = useState<Screen>('login');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [phoneForOTP, setPhoneForOTP] = useState('');
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
 
   // Auto-redirect to dashboard if user is authenticated
   React.useEffect(() => {
-    if (user?.isAuthenticated && currentScreen === 'login') {
+    if (user?.isAuthenticated && (currentScreen === 'login' || currentScreen === 'landing')) {
       setCurrentScreen('dashboard');
     }
   }, [user, currentScreen]);
@@ -72,6 +73,12 @@ const Index = () => {
   const renderScreen = () => {
     if (!user?.isAuthenticated) {
       switch (currentScreen) {
+        case 'landing':
+          return (
+            <LandingPage 
+              onGetStarted={() => setCurrentScreen('login')}
+            />
+          );
         case 'register':
           return (
             <RegisterScreen 
@@ -86,11 +93,17 @@ const Index = () => {
               onVerifySuccess={handleOTPSuccess}
             />
           );
-        default:
+        case 'login':
           return (
             <LoginScreen 
               onSwitchToRegister={handleSwitchToRegister}
               onLoginSuccess={handleAuthSuccess}
+            />
+          );
+        default:
+          return (
+            <LandingPage 
+              onGetStarted={() => setCurrentScreen('login')}
             />
           );
       }
