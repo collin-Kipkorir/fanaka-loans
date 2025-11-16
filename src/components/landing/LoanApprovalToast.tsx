@@ -59,24 +59,24 @@ export const LoanApprovalToast: React.FC = () => {
   }, []);
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+    <div className="fixed top-2 right-2 sm:top-4 sm:right-4 z-50 flex flex-col gap-1.5 sm:gap-2 pointer-events-none">
       {notifications.map((notification) => (
         <div
           key={notification.id}
-          className="bg-mpesa text-mpesa-foreground rounded-lg shadow-lg p-4 flex items-start gap-3 min-w-[300px] animate-slide-in-right pointer-events-auto"
+          className="bg-mpesa text-mpesa-foreground rounded-md sm:rounded-lg shadow-lg p-2.5 sm:p-4 flex items-start gap-2 sm:gap-3 w-[240px] sm:min-w-[300px] animate-slide-in-right pointer-events-auto"
           style={{
             animation: 'slideInRight 0.4s ease-out'
           }}
         >
           <div className="flex-shrink-0 mt-0.5">
-            <CheckCircle className="h-5 w-5" />
+            <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
           <div className="flex-1">
-            <p className="font-semibold text-sm mb-1">Loan Approved!</p>
-            <p className="text-xs opacity-95">
+            <p className="font-semibold text-xs sm:text-sm mb-0.5 sm:mb-1">Loan Approved!</p>
+            <p className="text-[10px] sm:text-xs opacity-95">
               {notification.phone} received <span className="font-bold">KSh {notification.amount.toLocaleString()}</span>
             </p>
-            <p className="text-xs opacity-80 mt-1">{notification.timeAgo}</p>
+            <p className="text-[10px] sm:text-xs opacity-80 mt-0.5 sm:mt-1">{notification.timeAgo}</p>
           </div>
         </div>
       ))}
