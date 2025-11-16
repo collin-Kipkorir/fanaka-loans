@@ -10,6 +10,7 @@ import { RepaymentScreen } from '@/components/payment/RepaymentScreen';
 import { CollateralPayment } from '@/components/payment/CollateralPayment';
 import { LoanHistory } from '@/components/loan/LoanHistory';
 import { Notification } from '@/components/ui/notification';
+import { LoanApprovalToast } from '@/components/landing/LoanApprovalToast';
 
 type Screen = 'landing' | 'login' | 'register' | 'otp' | 'dashboard' | 'apply' | 'repayment' | 'collateral-payment' | 'history';
 
@@ -130,6 +131,7 @@ const Index = () => {
 
   return (
     <>
+      <LoanApprovalToast />
       {renderScreen()}
       
       {/* Notifications */}
