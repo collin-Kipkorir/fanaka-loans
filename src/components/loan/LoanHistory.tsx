@@ -95,7 +95,7 @@ export const LoanHistory: React.FC<LoanHistoryProps> = ({ onBack }) => {
         </div>
       </div>
       
-      <div className="px-6 -mt-8">
+      <div className="px-6 pt-3 -mt-8">
         {/* Summary Card */}
         <Card className="shadow-card mb-6">
           <CardHeader>

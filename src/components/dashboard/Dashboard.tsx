@@ -21,7 +21,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onLogout }) => {
-  const { user, currentLoan, checkLoanLimit } = useAuth();
+  const { user, currentLoan, loans, checkLoanLimit } = useAuth();
   const [isCheckingLimit, setIsCheckingLimit] = React.useState(false);
   const [showLimitResult, setShowLimitResult] = React.useState(false);
   const [showAppPrompt, setShowAppPrompt] = React.useState(false);
@@ -149,7 +149,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onLogout }) =>
               </div>
               <h2 className="text-2xl font-bold mb-3 text-foreground">Unlock Your Financial Potential</h2>
               <p className="text-muted-foreground mb-8 max-w-md mx-auto text-base">
-                Get instant access to loans up to <span className="font-semibold text-primary">KES 50,000</span> with our quick and secure process. Check your personalized loan limit now!
+                Get instant access to loans up to <span className="font-semibold text-primary">KES 70,000</span> with our quick and secure process. Check your personalized loan limit now!
               </p>
               <Button 
                 size="lg"
@@ -216,7 +216,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onLogout }) =>
             </CardHeader>
             <CardContent>
               {currentLoan ? (
-                <div className="space-y-6">
+                <div className="space-y-3">
                   {/* Loan Header Info */}
                   <div className="bg-gradient-to-r from-muted/50 to-accent/30 rounded-xl p-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -250,43 +250,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onLogout }) =>
                     </div>
                   </div>
 
-                  {/* Processing Fee Payment - Enhanced */}
+                  {/* Processing Fee Payment - Enhanced (contrast + accessibility improvements) */}
                   {currentLoan.status === 'pending' && currentLoan.processingFee && (
-                    <div className="bg-gradient-to-r from-warning/10 to-gold/10 border border-warning/30 rounded-xl p-6">
+                    <div className="bg-gradient-to-r from-warning/20 to-gold/10 border border-warning/40 rounded-xl p-6 shadow-sm">
                       <div className="text-center mb-6">
-                        <div className="w-16 h-16 bg-gradient-to-r from-warning to-gold rounded-full flex items-center justify-center mx-auto mb-4">
+                        <div className="w-16 h-16 bg-gradient-to-r from-warning to-gold rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
                           <Banknote className="h-8 w-8 text-white" />
                         </div>
                         <h3 className="text-xl font-bold text-warning mb-2">⚡ Action Required</h3>
-                        <p className="text-muted-foreground mb-4">
+                        <p className="text-foreground mb-4">
                           Complete your loan processing by paying a small processing fee
                         </p>
                       </div>
                       
-                      <div className="bg-white/50 rounded-lg p-4 mb-6">
+                      <div className="bg-white/90 rounded-lg p-4 mb-6 border border-primary/10">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-muted-foreground">Processing Fee</span>
+                          <span className="text-sm text-foreground/70">Processing Fee</span>
                           <span className="text-lg font-bold text-primary">
                             {formatCurrency(currentLoan.processingFee)}
                           </span>
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-foreground/60">
                           Secure your loan • Fast processing • Instant approval
                         </div>
                       </div>
 
                       <Button 
                         size="lg"
-                        className="w-full bg-gradient-to-r from-warning to-gold hover:shadow-soft transition-all duration-300 transform hover:scale-105"
+                        aria-label={`Pay processing fee ${formatCurrency(currentLoan.processingFee)}`}
+                        className="w-full bg-gradient-to-r from-warning to-gold text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105"
                         onClick={() => onNavigate('collateral-payment')}
                       >
-                        <Banknote className="mr-3 h-5 w-5" />
-                        Pay Processing Fee - {formatCurrency(currentLoan.processingFee)}
+                        <Banknote className="mr-3 h-5 w-5 text-white" />
+                        Pay Processing Fee — {formatCurrency(currentLoan.processingFee)}
                       </Button>
                       
                       <div className="mt-4 text-center">
-                        <p className="text-xs text-muted-foreground">
-                          💳 Pay securely via M-Pesa • Processing fee of  {formatCurrency(currentLoan.processingFee)}
+                        <p className="text-sm text-foreground/70">
+                          💳 Pay securely via M-Pesa • Processing fee of {formatCurrency(currentLoan.processingFee)}
                         </p>
                       </div>
                     </div>
@@ -370,7 +371,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, onLogout }) =>
                 </div>
                 <div className="text-center">
                   <span className="font-semibold text-base">Apply Loan</span>
-                  <p className="text-xs text-muted-foreground mt-1">Up to KES 10,000</p>
+                  <p className="text-xs text-muted-foreground mt-1">Up to KES 70,000</p>
                 </div>
               </Button>
             </CardContent>

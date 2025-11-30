@@ -48,21 +48,82 @@ export const useAuth = () => {
   return context;
 };
 
-// TODO: Replace with Supabase integration
-// Mock data for demonstration - REMOVE when connecting to Supabase
-const mockUsers = [
-  { id: '1', name: 'John Kamau', phone: '0712345678', password: 'password123' },
-  { id: '2', name: 'Grace Wanjiku', phone: '0723456789', password: 'password123' },
-];
+// LocalStorage keys
+const STORAGE_USERS_KEY = 'fanaka_users';
+const STORAGE_CURRENT_USER_KEY = 'fanaka_current_user';
 
-// TODO: Replace with Supabase database queries
-// Start with empty loans for first-time users
-const mockLoans: Loan[] = [];
+// Helper: get per-user loans key
+function getLoansKeyForUser(userId: string): string {
+  return `fanaka_loans_${userId}`;
+}
+
+// Helper: get users from localStorage
+function getStoredUsers(): Array<{ id: string; name: string; phone: string; password: string }> {
+  try {
+    const stored = localStorage.getItem(STORAGE_USERS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Helper: save users to localStorage
+function saveUsers(users: Array<{ id: string; name: string; phone: string; password: string }>) {
+  localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+}
+
+// Helper: get current user from localStorage
+function getStoredCurrentUser(): User | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_CURRENT_USER_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Helper: save current user to localStorage
+function saveCurrentUser(user: User | null) {
+  if (user) {
+    localStorage.setItem(STORAGE_CURRENT_USER_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
+  }
+}
+
+// Helper: get loans from localStorage for a specific user
+function getStoredLoansForUser(userId: string): Loan[] {
+  try {
+    const key = getLoansKeyForUser(userId);
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Helper: save loans to localStorage for a specific user
+function saveLoansForUser(userId: string, loans: Loan[]) {
+  const key = getLoansKeyForUser(userId);
+  localStorage.setItem(key, JSON.stringify(loans));
+}
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loans, setLoans] = useState<Loan[]>([]);  // Start with empty loans always
+  const storedUser = getStoredCurrentUser();
+  const [user, setUser] = useState<User | null>(storedUser);
+  const [loans, setLoans] = useState<Loan[]>(() =>
+    storedUser ? getStoredLoansForUser(storedUser.id) : []
+  );
   const [notifications, setNotifications] = useState<Array<{ message: string; type: string }>>([]);
+
+  // Ensure loans are updated from localStorage whenever user changes
+  React.useEffect(() => {
+    if (user) {
+      setLoans(getStoredLoansForUser(user.id));
+    } else {
+      setLoans([]);
+    }
+  }, [user]);
 
   const currentLoan = loans.find(loan => 
     loan.status === 'disbursed' || loan.status === 'approved' || loan.status === 'pending' || 
@@ -70,28 +131,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   ) || null;
 
   const login = async (phone: string, password: string): Promise<void> => {
-    // TODO: Replace with Supabase Auth
-    // Use: supabase.auth.signInWithPassword() for phone/password auth
-    // Or: supabase.auth.signInWithOtp() for phone OTP verification
-    
-    // Simulate API call - REMOVE when using Supabase
+    // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    const foundUser = mockUsers.find(u => u.phone === phone && u.password === password);
+    const users = getStoredUsers();
+    const foundUser = users.find(u => u.phone === phone && u.password === password);
     if (foundUser) {
-      setUser({ ...foundUser, isAuthenticated: true, password: undefined }); // Don't store password in state
+      const loggedInUser = { ...foundUser, isAuthenticated: true, password: undefined };
+      setUser(loggedInUser); 
+      saveCurrentUser(loggedInUser); // Persist logged-in user
     } else {
       throw new Error('Invalid credentials');
     }
   };
 
   const register = async (name: string, phone: string, password: string): Promise<void> => {
-    // TODO: Replace with Supabase Auth
-    // Use: supabase.auth.signUp() with phone and password
-    // Then insert user profile data into 'users' table
-    
-    // Simulate API call - REMOVE when using Supabase
+    // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const users = getStoredUsers();
+    // Check if phone already registered
+    if (users.some(u => u.phone === phone)) {
+      throw new Error('Phone number already registered');
+    }
     
     const newUser: User = {
       id: Date.now().toString(),
@@ -100,13 +162,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isAuthenticated: true,
     };
     
-    mockUsers.push({ id: newUser.id, name, phone, password });
+    // Save to localStorage
+    users.push({ id: newUser.id, name, phone, password });
+    saveUsers(users);
+    saveCurrentUser(newUser); // Persist logged-in user
+    
     setUser(newUser);
   };
 
   const logout = () => {
     setUser(null);
-    setLoans([]); // Always start fresh with no loans
+    setLoans([]);
+    saveCurrentUser(null); // Clear persisted user
   };
 
   const checkLoanLimit = async (): Promise<number> => {
@@ -120,7 +187,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const loanLimits = [8000, 10000, 12000, 15000, 18000, 20000, 22000, 25000];
     const randomLimit = loanLimits[Math.floor(Math.random() * loanLimits.length)];
     
-    setUser(prev => prev ? { ...prev, loanLimit: randomLimit, hasCheckedLimit: true } : null);
+    setUser(prev => {
+      const updated = prev ? { ...prev, loanLimit: randomLimit, hasCheckedLimit: true } : null;
+      if (updated) {
+        saveCurrentUser(updated); // Persist updated user
+      }
+      return updated;
+    });
     return randomLimit;
   };
 
@@ -161,7 +234,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       processingFee,
     };
     
-    setLoans(prev => [newLoan, ...prev]);
+    setLoans(prev => {
+      const updated = [newLoan, ...prev];
+      if (user) saveLoansForUser(user.id, updated); // Persist loans for this user
+      return updated;
+    });
     return { success: true, loan: newLoan };
   };
 
@@ -173,19 +250,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Simulate STK Push payment - REMOVE when using Supabase
     await new Promise(resolve => setTimeout(resolve, 3000));
     
-    setLoans(prev => prev.map(loan => 
-      loan.id === loanId 
-          ? { ...loan, status: 'in_processing' as const }
-        : loan
-    ));
+    setLoans(prev => {
+      const updated = prev.map(loan => 
+        loan.id === loanId 
+            ? { ...loan, status: 'in_processing' as const }
+          : loan
+      );
+      if (user) saveLoansForUser(user.id, updated); // Persist loans for this user
+      return updated;
+    });
     
     // After payment, change to in_processing and then to awaiting_disbursement after 1 day (simulated as 5 seconds)
     setTimeout(() => {
-      setLoans(prev => prev.map(loan => 
-        loan.id === loanId 
-          ? { ...loan, status: 'awaiting_disbursement' as const }
-          : loan
-      ));
+      setLoans(prev => {
+        const updated = prev.map(loan => 
+          loan.id === loanId 
+            ? { ...loan, status: 'awaiting_disbursement' as const }
+            : loan
+        );
+        if (user) saveLoansForUser(user.id, updated); // Persist loans for this user
+        return updated;
+      });
       addNotification('Loan is awaiting disbursement to your M-Pesa', 'info');
     }, 5000); // Simulate 1 day as 5 seconds
     
@@ -204,11 +289,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const newBalance = Math.max(0, (currentLoan.balance || 0) - amount);
       const newStatus = newBalance === 0 ? 'repaid' : currentLoan.status;
       
-      setLoans(prev => prev.map(loan => 
-        loan.id === currentLoan.id
-          ? { ...loan, balance: newBalance, status: newStatus as any }
-          : loan
-      ));
+      setLoans(prev => {
+        const updated = prev.map(loan => 
+          loan.id === currentLoan.id
+            ? { ...loan, balance: newBalance, status: newStatus as Loan['status'] }
+            : loan
+        );
+        if (user) saveLoansForUser(user.id, updated); // Persist loans for this user
+        return updated;
+      });
       
       return { success: true };
     }

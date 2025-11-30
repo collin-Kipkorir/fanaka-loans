@@ -159,7 +159,7 @@ export const LoanApplication: React.FC<LoanApplicationProps> = ({ onBack }) => {
         <p className="text-primary-foreground/80">Get instant access to funds</p>
       </div>
       
-      <div className="px-6 -mt-8">
+      <div className="px-6 py-3 -mt-8">
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -198,11 +198,11 @@ export const LoanApplication: React.FC<LoanApplicationProps> = ({ onBack }) => {
                 <Input
                   id="amount"
                   type="number"
-                  placeholder={`Enter amount (1,000 - ${user?.loanLimit ? new Intl.NumberFormat('en-KE').format(user.loanLimit) : '50,000'})`}
+                  placeholder={`Enter amount (1,000 - ${user?.loanLimit ? new Intl.NumberFormat('en-KE').format(user.loanLimit) : '70,000'})`}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   min="1000"
-                  max={user?.loanLimit || 50000}
+                  max={user?.loanLimit || 70000}
                   className="text-base"
                 />
               </div>
@@ -214,8 +214,7 @@ export const LoanApplication: React.FC<LoanApplicationProps> = ({ onBack }) => {
                     <SelectValue placeholder="Select repayment period" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="7">7 days</SelectItem>
-                    <SelectItem value="14">14 days</SelectItem>
+              
                     <SelectItem value="30">30 days</SelectItem>
                     <SelectItem value="60">60 days</SelectItem>
                   </SelectContent>

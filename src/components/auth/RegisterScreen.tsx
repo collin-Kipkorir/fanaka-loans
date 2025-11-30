@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Loader2, Phone, CreditCard, User } from 'lucide-react';
+import { Loader2, Phone, CreditCard, User, Eye, EyeOff, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface RegisterScreenProps {
@@ -15,6 +15,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin,
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [nationalId, setNationalId] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { register } = useAuth();
@@ -23,6 +27,33 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin,
     const kenyanPhoneRegex = /^(07\d{8}|01\d{8})$/;
     return kenyanPhoneRegex.test(phone);
   };
+
+  // Calculate password strength
+  const getPasswordStrength = (pwd: string) => {
+    if (!pwd) return { score: 0, label: '', color: '' };
+    
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (pwd.length >= 12) score++;
+    if (/[a-z]/.test(pwd)) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^a-zA-Z0-9]/.test(pwd)) score++;
+    
+    const strengths = [
+      { score: 0, label: '', color: '' },
+      { score: 1, label: 'Very Weak', color: 'text-destructive' },
+      { score: 2, label: 'Weak', color: 'text-orange-500' },
+      { score: 3, label: 'Fair', color: 'text-yellow-500' },
+      { score: 4, label: 'Good', color: 'text-blue-500' },
+      { score: 5, label: 'Strong', color: 'text-green-500' },
+      { score: 6, label: 'Very Strong', color: 'text-green-600' },
+    ];
+    
+    return strengths[Math.min(score, 6)];
+  };
+
+  const passwordStrength = getPasswordStrength(password);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,13 +74,23 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin,
       return;
     }
 
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
-      await register(name, phone, nationalId);
+      await register(name, phone, password);
       onRegisterSuccess();
     } catch (err) {
-      setError('Registration failed. Please try again.');
+      setError((err as Error).message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -112,6 +153,88 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin,
                 onChange={(e) => setNationalId(e.target.value)}
                 className="text-base"
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password" className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="text-base pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              
+              {password && (
+                <div className="space-y-1">
+                  <div className="flex gap-1">
+                    {[...Array(6)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`flex-1 h-1 rounded-full transition-colors ${
+                          i < passwordStrength.score
+                            ? passwordStrength.color === 'text-destructive'
+                              ? 'bg-destructive'
+                              : passwordStrength.color === 'text-orange-500'
+                              ? 'bg-orange-500'
+                              : passwordStrength.color === 'text-yellow-500'
+                              ? 'bg-yellow-500'
+                              : passwordStrength.color === 'text-blue-500'
+                              ? 'bg-blue-500'
+                              : 'bg-green-500'
+                            : 'bg-muted'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className={`text-xs font-medium ${passwordStrength.color}`}>
+                    {passwordStrength.label}
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Confirm Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="text-base pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {password && confirmPassword && password === confirmPassword && (
+                <p className="text-xs text-green-600 font-medium">✓ Passwords match</p>
+              )}
+              {password && confirmPassword && password !== confirmPassword && (
+                <p className="text-xs text-destructive font-medium">✗ Passwords do not match</p>
+              )}
             </div>
             
             {error && (

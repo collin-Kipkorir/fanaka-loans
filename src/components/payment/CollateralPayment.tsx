@@ -128,7 +128,7 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
         <p className="text-primary-foreground/80">Pay via M-Pesa to proceed</p>
       </div>
       
-      <div className="px-6 -mt-8">
+      <div className="px-6 pt-3 -mt-8">
         <Card className="shadow-card mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

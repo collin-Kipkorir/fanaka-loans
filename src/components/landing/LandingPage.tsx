@@ -50,7 +50,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
 
           <div className="pt-8 animate-fade-in-delay-3">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-primary mb-4">
-              Up to KSh 100,000
+              Up to KSh 70,000
             </h2>
             <p className="text-base sm:text-lg text-muted-foreground">
               Instant approval • No paperwork • 100% digital
@@ -60,7 +60,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       </section>
 
       {/* Features Section */}
-      <section className="relative z-10 container mx-auto px-4 py-16">
+      <section className="relative z-10 container mx-auto px-4 py-5">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           <Card className="bg-card/80 backdrop-blur-sm border-border p-8 hover:shadow-soft transition-all duration-300 hover:-translate-y-1">
             <div className="w-14 h-14 bg-primary/20 rounded-xl flex items-center justify-center mb-6">
