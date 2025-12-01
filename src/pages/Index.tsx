@@ -14,6 +14,11 @@ import { LoanApprovalToast } from '@/components/landing/LoanApprovalToast';
 
 type Screen = 'landing' | 'login' | 'register' | 'otp' | 'dashboard' | 'apply' | 'repayment' | 'collateral-payment' | 'history';
 
+type Loan = {
+  status?: string;
+  // Add other loan properties as needed
+};
+
 const Index = () => {
   const { user, logout } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
@@ -70,6 +75,48 @@ const Index = () => {
   const removeNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
+
+  // Helper: send browser notification
+  function sendLoanReminderNotification(message: string) {
+    if ('Notification' in window && window.Notification.permission === 'granted') {
+      new window.Notification('Fanaka Loans', {
+        body: message,
+        icon: '/logo-192.png',
+      });
+    }
+  }
+
+  React.useEffect(() => {
+    let reminderInterval: NodeJS.Timeout | undefined;
+
+    // Request notification permission on mount
+    if ('Notification' in window && window.Notification.permission !== 'granted') {
+      window.Notification.requestPermission();
+    }
+
+    // Only set reminders if user is authenticated
+    if (user?.isAuthenticated) {
+      // Check if user has applied for a loan or has incomplete application
+      const loans: Loan[] = Array.isArray((user as any).loans) ? (user as any).loans as Loan[] : [];
+      const hasApplied = loans.length > 0;
+      const hasIncomplete = loans.some((loan) => loan.status === 'pending' || loan.status === 'in_processing' || loan.status === 'awaiting_disbursement');
+
+      if (!hasApplied || hasIncomplete) {
+        // Send reminder every 3 minutes (180000 ms)
+        reminderInterval = setInterval(() => {
+          if (!hasApplied) {
+            sendLoanReminderNotification('Need cash? Apply for a Fanaka loan now and get instant approval!');
+          } else if (hasIncomplete) {
+            sendLoanReminderNotification('Complete your loan application to get your funds quickly!');
+          }
+        }, 180000);
+      }
+    }
+
+    return () => {
+      if (reminderInterval) clearInterval(reminderInterval);
+    };
+  }, [user]);
 
   const renderScreen = () => {
     if (!user?.isAuthenticated) {
