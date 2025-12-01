@@ -99,7 +99,7 @@ const Index = () => {
     // Only set reminders if user is authenticated
     if (user?.isAuthenticated) {
       // Check if user has applied for a loan or has incomplete application
-      const loans: Loan[] = Array.isArray((user as any).loans) ? (user as any).loans as Loan[] : [];
+      const loans: Loan[] = user.loans || [];
       const hasApplied = loans.length > 0;
       const hasIncomplete = loans.some((loan) => loan.status === 'pending' || loan.status === 'in_processing' || loan.status === 'awaiting_disbursement');
 
