@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { X, Download } from 'lucide-react';
+import Logo from '@/assets/logo.png';
 
 // Local event interface to avoid relying on external/global types in all tooling
 interface LocalBeforeInstallPromptEvent extends Event {
@@ -15,6 +17,7 @@ export const PWAInstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<LocalBeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     // Detect if already in standalone mode (installed)
@@ -124,7 +127,11 @@ export const PWAInstallPrompt: React.FC = () => {
 
   const handleClose = () => {
     console.log('[PWA] user closed the install prompt (custom)');
-    setShowPrompt(false);
+    setIsAnimating(true);
+    setTimeout(() => {
+      setShowPrompt(false);
+      setIsAnimating(false);
+    }, 300);
     try { localStorage.setItem(STORAGE_KEY_DISMISSED, 'true'); } catch (err) { console.warn('Unable to set dismissed flag', err); }
   };
 
@@ -132,18 +139,101 @@ export const PWAInstallPrompt: React.FC = () => {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-      <div className="max-w-lg w-full bg-white/95 dark:bg-slate-800/95 shadow-lg rounded-lg p-4 flex items-center gap-4">
-        <div className="flex-1">
-          <div className="font-medium">Install Fanaka</div>
-          <div className="text-sm text-muted-foreground">Install the app for faster access and offline support.</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleInstall} className="px-3 py-1 rounded-md bg-primary text-white">Install</button>
-          <button onClick={handleClose} className="px-3 py-1 rounded-md border">Close</button>
+    <>
+      {/* Backdrop */}
+      <div 
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${
+          isAnimating ? 'opacity-0' : 'opacity-100'
+        }`}
+        onClick={handleClose}
+      />
+      
+      {/* Modern Install Dialog */}
+      <div 
+        className={`fixed bottom-0 left-0 right-0 z-50 flex items-end justify-center pointer-events-none transition-all duration-300 ${
+          isAnimating ? 'translate-y-full' : 'translate-y-0'
+        }`}
+      >
+        <div className="w-full max-w-md pointer-events-auto">
+          <div className="mx-4 mb-6 rounded-2xl bg-gradient-primary shadow-glow overflow-hidden">
+            {/* Top Section with Logo and Close */}
+            <div className="relative p-6 pb-4">
+              <button
+                onClick={handleClose}
+                className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+
+              {/* Logo */}
+              <div className="flex justify-center mb-4">
+                <img 
+                  src={Logo} 
+                  alt="Fanaka Loans" 
+                  className="w-16 h-16 rounded-full object-cover shadow-lg ring-4 ring-white/20"
+                />
+              </div>
+            </div>
+
+            {/* Content Section */}
+            <div className="px-6 pb-4 text-center">
+              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+                Install Fanaka
+              </h2>
+              <p className="text-sm sm:text-base text-white/90 mb-6 leading-relaxed">
+                Get instant loans with quick approval. Install the app for faster access and offline support.
+              </p>
+              
+              {/* Features List */}
+              <div className="space-y-2 mb-6 text-left bg-white/10 rounded-lg p-4">
+                <div className="flex items-center gap-3 text-white/90 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />
+                  <span>Quick approval in minutes</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/90 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />
+                  <span>Loans up to KES 50,000</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/90 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/70 flex-shrink-0" />
+                  <span>M-Pesa disbursement</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="px-6 pb-6 flex gap-3">
+              <button
+                onClick={handleClose}
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-white/30 text-white font-semibold hover:bg-white/10 transition-all duration-200 text-sm sm:text-base"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={handleInstall}
+                className="flex-1 px-4 py-3 rounded-xl bg-white text-primary font-bold hover:shadow-lg hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base"
+              >
+                <Download className="w-4 h-4" />
+                Install Now
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* CSS for animations */}
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .animate-slide-up {
+          animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+      `}</style>
+    </>
   );
 };
 
