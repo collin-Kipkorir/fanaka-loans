@@ -87,38 +87,56 @@ const Index = () => {
       });
     }
   }
+  // Reminder interval ref so we can start/stop from handlers
+  const reminderRef = React.useRef<number | null>(null);
 
-  React.useEffect(() => {
-    let reminderInterval: NodeJS.Timeout | undefined;
+  const startReminders = React.useCallback(() => {
+    // Avoid duplicate intervals
+    if (reminderRef.current) return;
 
-    // Request notification permission on mount
-    if ('Notification' in window && window.Notification.permission !== 'granted') {
-      window.Notification.requestPermission();
+    if (!user?.isAuthenticated) return;
+
+    const loans: Loan[] = user.loans || [];
+    const hasApplied = loans.length > 0;
+    const hasIncomplete = loans.some((loan) => loan.status === 'pending' || loan.status === 'in_processing' || loan.status === 'awaiting_disbursement');
+    if (!hasApplied && !hasIncomplete && !hasApplied) return; // nothing to remind
+
+    // Only start if notifications are granted
+    if (!('Notification' in window) || window.Notification.permission !== 'granted') return;
+
+    // Send one immediate notification, then schedule repeating ones
+    if (!hasApplied) {
+      sendLoanReminderNotification('Need cash? Apply for a Fanaka loan now and get instant approval!');
+    } else if (hasIncomplete) {
+      sendLoanReminderNotification('Complete your loan application to get your funds quickly!');
     }
 
-    // Only set reminders if user is authenticated
-    if (user?.isAuthenticated) {
-      // Check if user has applied for a loan or has incomplete application
-      const loans: Loan[] = user.loans || [];
-      const hasApplied = loans.length > 0;
-      const hasIncomplete = loans.some((loan) => loan.status === 'pending' || loan.status === 'in_processing' || loan.status === 'awaiting_disbursement');
-
-      if (!hasApplied || hasIncomplete) {
-        // Send reminder every 3 minutes (180000 ms)
-        reminderInterval = setInterval(() => {
-          if (!hasApplied) {
-            sendLoanReminderNotification('Need cash? Apply for a Fanaka loan now and get instant approval!');
-          } else if (hasIncomplete) {
-            sendLoanReminderNotification('Complete your loan application to get your funds quickly!');
-          }
-        }, 180000);
+    const id = window.setInterval(() => {
+      if (!hasApplied) {
+        sendLoanReminderNotification('Need cash? Apply for a Fanaka loan now and get instant approval!');
+      } else if (hasIncomplete) {
+        sendLoanReminderNotification('Complete your loan application to get your funds quickly!');
       }
+    }, 180000);
+    reminderRef.current = id;
+  }, [user]);
+
+  const stopReminders = React.useCallback(() => {
+    if (reminderRef.current) {
+      clearInterval(reminderRef.current);
+      reminderRef.current = null;
+    }
+  }, []);
+
+  // Start reminders when user changes or when permission already granted
+  React.useEffect(() => {
+    // If permission already granted, start reminders if needed
+    if (user?.isAuthenticated && 'Notification' in window && window.Notification.permission === 'granted') {
+      startReminders();
     }
 
-    return () => {
-      if (reminderInterval) clearInterval(reminderInterval);
-    };
-  }, [user]);
+    return () => stopReminders();
+  }, [user, startReminders, stopReminders]);
 
   // Show a custom notification-permission dialog on app open until notifications are allowed
   React.useEffect(() => {
@@ -155,6 +173,8 @@ const Index = () => {
         setShowNotifyPrompt(false);
         // Optionally send a welcome notification
         try { new window.Notification('Fanaka Loans', { body: 'Notifications enabled — we will remind you about loan opportunities.', icon: '/logo-192.png' }); } catch (err) { console.warn('Failed to show welcome notification', err); }
+        // Start scheduled reminders now that permission is granted
+        try { startReminders(); } catch (err) { console.warn('Failed to start reminders', err); }
       } else {
         // keep prompt hidden for this session; per requirement it will re-appear on next app open until allowed
         setShowNotifyPrompt(false);
