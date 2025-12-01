@@ -12,6 +12,8 @@ interface LocalBeforeInstallPromptEvent extends Event {
 }
 
 const STORAGE_KEY_DISMISSED = 'pwa-install-dismissed';
+const STORAGE_KEY_DISMISSED_TIME = 'pwa-install-dismissed-time';
+const DISMISS_TIMEOUT_MS = 60000; // 1 minute (60,000 milliseconds)
 
 export const PWAInstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<LocalBeforeInstallPromptEvent | null>(null);
@@ -82,15 +84,27 @@ export const PWAInstallPrompt: React.FC = () => {
     if (!deferredPrompt) return;
     if (isInstalled) return;
 
-    let dismissed = false;
+    // Check if dismissed flag is still valid (not expired after 1 minute)
+    let isDismissed = false;
     try {
-      dismissed = localStorage.getItem(STORAGE_KEY_DISMISSED) === 'true';
+      const dismissedTime = localStorage.getItem(STORAGE_KEY_DISMISSED_TIME);
+      if (dismissedTime) {
+        const elapsed = Date.now() - parseInt(dismissedTime, 10);
+        if (elapsed < DISMISS_TIMEOUT_MS) {
+          isDismissed = true;
+          console.log('[PWA] Dismissed flag is still valid, will re-prompt in', Math.round((DISMISS_TIMEOUT_MS - elapsed) / 1000), 'seconds');
+        } else {
+          console.log('[PWA] Dismissed flag expired, resetting');
+          localStorage.removeItem(STORAGE_KEY_DISMISSED_TIME);
+          localStorage.removeItem(STORAGE_KEY_DISMISSED);
+        }
+      }
     } catch (err) {
       console.warn('Unable to read pwa dismissed flag', err);
-      dismissed = false;
+      isDismissed = false;
     }
-    console.log('[PWA] deferredPrompt available -> scheduling show?', { dismissed, isInstalled });
-    if (dismissed) return;
+    console.log('[PWA] deferredPrompt available -> scheduling show?', { isDismissed, isInstalled });
+    if (isDismissed) return;
 
     const t = setTimeout(() => {
       console.log('[PWA] showing install prompt (custom UI) after 3s');
@@ -116,7 +130,13 @@ export const PWAInstallPrompt: React.FC = () => {
         // dismissed
         console.log('[PWA] user dismissed the install');
         setShowPrompt(false);
-        try { localStorage.setItem(STORAGE_KEY_DISMISSED, 'true'); } catch (err) { console.warn(err); }
+        try { 
+          localStorage.setItem(STORAGE_KEY_DISMISSED, 'true');
+          localStorage.setItem(STORAGE_KEY_DISMISSED_TIME, Date.now().toString());
+          console.log('[PWA] Dismissed flag set, will re-prompt in 1 minute');
+        } catch (err) { 
+          console.warn(err); 
+        }
       }
     } catch (err) {
       // ignore — log to help debugging
@@ -132,7 +152,14 @@ export const PWAInstallPrompt: React.FC = () => {
       setShowPrompt(false);
       setIsAnimating(false);
     }, 300);
-    try { localStorage.setItem(STORAGE_KEY_DISMISSED, 'true'); } catch (err) { console.warn('Unable to set dismissed flag', err); }
+    // Store timestamp of dismissal so we can re-prompt after 1 minute
+    try { 
+      localStorage.setItem(STORAGE_KEY_DISMISSED, 'true');
+      localStorage.setItem(STORAGE_KEY_DISMISSED_TIME, Date.now().toString());
+      console.log('[PWA] Dismissed flag set, will re-prompt in 1 minute');
+    } catch (err) { 
+      console.warn('Unable to set dismissed flag', err); 
+    }
   };
 
   if (isInstalled) return null;
