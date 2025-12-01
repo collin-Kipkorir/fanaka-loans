@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Logo from '@/assets/logo.png';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -100,9 +101,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin,
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-soft">
         <CardHeader className="text-center space-y-2">
-          <div className="w-16 h-16 bg-gradient-gold rounded-full flex items-center justify-center mx-auto">
-            <span className="text-2xl font-bold text-white">F</span>
-          </div>
+          <img src={Logo} alt="Fanaka logo" className="w-16 h-16 rounded-full object-cover mx-auto" />
           <CardTitle className="text-2xl font-bold text-foreground">Join Fanaka</CardTitle>
           <p className="text-muted-foreground">Create your account to get started</p>
         </CardHeader>
