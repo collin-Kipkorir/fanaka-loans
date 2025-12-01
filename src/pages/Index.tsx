@@ -10,6 +10,7 @@ import { RepaymentScreen } from '@/components/payment/RepaymentScreen';
 import { CollateralPayment } from '@/components/payment/CollateralPayment';
 import { LoanHistory } from '@/components/loan/LoanHistory';
 import { Notification } from '@/components/ui/notification';
+import NotificationPermissionPrompt from '@/components/ui/NotificationPermissionPrompt';
 import { LoanApprovalToast } from '@/components/landing/LoanApprovalToast';
 
 type Screen = 'landing' | 'login' | 'register' | 'otp' | 'dashboard' | 'apply' | 'repayment' | 'collateral-payment' | 'history';
@@ -25,6 +26,7 @@ const Index = () => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [phoneForOTP, setPhoneForOTP] = useState('');
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
+  const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
 
   // Auto-redirect to dashboard if user is authenticated
   React.useEffect(() => {
@@ -118,6 +120,55 @@ const Index = () => {
     };
   }, [user]);
 
+  // Show a custom notification-permission dialog on app open until notifications are allowed
+  React.useEffect(() => {
+    try {
+      if (!user?.isAuthenticated) {
+        setShowNotifyPrompt(false);
+        return;
+      }
+
+      if (!('Notification' in window)) {
+        setShowNotifyPrompt(false);
+        return;
+      }
+
+      const permission = window.Notification.permission;
+      // If not granted, show our friendly prompt — we will ask permission only when user clicks allow
+      if (permission !== 'granted') {
+        setShowNotifyPrompt(true);
+      } else {
+        setShowNotifyPrompt(false);
+      }
+    } catch (err) {
+      // safe fallback
+      setShowNotifyPrompt(false);
+    }
+  }, [user]);
+
+  const handleAllowNotifications = async () => {
+    try {
+      if (!('Notification' in window)) return;
+      const result = await window.Notification.requestPermission();
+      console.log('[PWA] Notification permission result:', result);
+      if (result === 'granted') {
+        setShowNotifyPrompt(false);
+        // Optionally send a welcome notification
+        try { new window.Notification('Fanaka Loans', { body: 'Notifications enabled — we will remind you about loan opportunities.', icon: '/logo-192.png' }); } catch (err) { console.warn('Failed to show welcome notification', err); }
+      } else {
+        // keep prompt hidden for this session; per requirement it will re-appear on next app open until allowed
+        setShowNotifyPrompt(false);
+      }
+    } catch (err) {
+      console.warn('Failed to request notification permission', err);
+    }
+  };
+
+  const handleDeclineNotifications = () => {
+    // Close for current session; it will re-appear on next app open until user grants permission
+    setShowNotifyPrompt(false);
+  };
+
   const renderScreen = () => {
     if (!user?.isAuthenticated) {
       switch (currentScreen) {
@@ -180,6 +231,13 @@ const Index = () => {
     <>
       <LoanApprovalToast />
       {renderScreen()}
+
+      {/* Notification permission prompt (shows until user grants permission) */}
+      <NotificationPermissionPrompt
+        show={showNotifyPrompt}
+        onAllow={handleAllowNotifications}
+        onDecline={handleDeclineNotifications}
+      />
       
       {/* Notifications */}
       {notifications.map((notification) => (
