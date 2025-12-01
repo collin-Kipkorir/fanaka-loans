@@ -1,6 +1,8 @@
 import React from 'react';
 import Logo from '@/assets/logo.png';
 import { X, Bell } from 'lucide-react';
+import { subscribeToPush } from '@/services/push';
+import { useState } from 'react';
 
 interface Props {
   show: boolean;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 const NotificationPermissionPrompt: React.FC<Props> = ({ show, onAllow, onDecline }) => {
+  const [bgLoading, setBgLoading] = useState(false);
   if (!show) return null;
 
   return (
@@ -51,6 +54,28 @@ const NotificationPermissionPrompt: React.FC<Props> = ({ show, onAllow, onDeclin
                 Allow
               </button>
             </div>
+
+            {/* Optional: allow user to enable background push subscriptions explicitly */}
+            {typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window ? (
+              <div className="mt-3 text-center">
+                <button
+                  onClick={async () => {
+                    try {
+                      setBgLoading(true);
+                      const sub = await subscribeToPush();
+                      console.debug('[push] subscription result', sub);
+                    } catch (err) {
+                      console.warn('[push] subscribe failed', err);
+                    } finally {
+                      setBgLoading(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm hover:bg-white/20 transition-colors"
+                >
+                  {bgLoading ? 'Subscribing…' : 'Enable background notifications'}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
