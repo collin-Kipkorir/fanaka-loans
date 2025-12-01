@@ -3,18 +3,22 @@
 
 import { subscribeToPush as swSubscribeToPush } from '@/serviceWorkerRegistration';
 
-// NOTE: Replace this placeholder with your real VAPID public key generated on the server.
-// You can keep it in environment variables or fetch from an endpoint like /api/vapid-public-key
-const VAPID_PUBLIC_KEY_PLACEHOLDER = '<YOUR_VAPID_PUBLIC_KEY_HERE>'; // <-- replace me
-
+// Fetch the VAPID public key from the server at runtime, then subscribe.
 export async function subscribeToPush() {
-  if (!VAPID_PUBLIC_KEY_PLACEHOLDER || VAPID_PUBLIC_KEY_PLACEHOLDER.startsWith('<')) {
-    console.warn('[push] VAPID public key not set. Skipping push subscription.');
-    return null;
-  }
-
   try {
-    return await swSubscribeToPush(VAPID_PUBLIC_KEY_PLACEHOLDER);
+    const resp = await fetch('/api/vapid-public-key');
+    if (!resp.ok) {
+      console.warn('[push] Failed to fetch VAPID public key', resp.status);
+      return null;
+    }
+    const body = await resp.json();
+    const vapidKey = body?.publicKey;
+    if (!vapidKey) {
+      console.warn('[push] No VAPID public key returned by server');
+      return null;
+    }
+
+    return await swSubscribeToPush(vapidKey);
   } catch (err) {
     console.warn('[push] subscribeToPush error', err);
     return null;

@@ -11,9 +11,11 @@
 
 const express = require('express');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 const webpush = require('web-push');
 
 const app = express();
+app.use(cors());
 app.use(bodyParser.json({ limit: '1mb' }));
 
 // Replace with your VAPID keys (generate with web-push generate-vapid-keys)
@@ -35,6 +37,11 @@ app.post('/api/save-subscription', (req, res) => {
   SUBSCRIPTIONS.push(sub);
   console.log('Saved subscription, total:', SUBSCRIPTIONS.length);
   res.json({ success: true });
+});
+
+// Expose the public VAPID key so clients can fetch it at runtime
+app.get('/api/vapid-public-key', (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC });
 });
 
 app.post('/api/send-push', async (req, res) => {
