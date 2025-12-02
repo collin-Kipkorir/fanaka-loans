@@ -174,40 +174,67 @@ const Index = () => {
       }
 
       const permission = window.Notification.permission;
-      // If not granted, show our friendly prompt — we will ask permission only when user clicks allow
-      if (permission !== 'granted') {
+      console.debug('[PWA] Current notification permission on load:', permission);
+      
+      // Only show prompt if permission is 'default' (user hasn't decided yet)
+      // Don't show if 'granted' (already enabled) or 'denied' (user already declined)
+      if (permission === 'default') {
+        console.log('[PWA] Showing notification permission prompt (permission is default)');
         setShowNotifyPrompt(true);
       } else {
+        console.log('[PWA] Not showing notification permission prompt (permission is', permission, ')');
         setShowNotifyPrompt(false);
       }
     } catch (err) {
       // safe fallback
+      console.warn('[PWA] Error checking notification permission:', err);
       setShowNotifyPrompt(false);
     }
-  }, [user]);
+  }, [user?.isAuthenticated]);
 
   const handleAllowNotifications = async () => {
     try {
       if (!('Notification' in window)) return;
+      
+      console.log('[PWA] User clicked Allow — requesting browser permission...');
       const result = await window.Notification.requestPermission();
-      console.log('[PWA] Notification permission result:', result);
+      console.log('[PWA] Browser permission request result:', result);
+      
       if (result === 'granted') {
+        console.log('[PWA] Permission granted! Hiding prompt and starting reminders...');
         setShowNotifyPrompt(false);
+        
         // Optionally send a welcome notification
-        try { new window.Notification('Fanaka Loans', { body: 'Notifications enabled — we will remind you about loan opportunities.', icon: '/logo-192.png' }); } catch (err) { console.warn('Failed to show welcome notification', err); }
+        try { 
+          new window.Notification('Fanaka Loans', { 
+            body: 'Notifications enabled — we will remind you about loan opportunities.', 
+            icon: '/logo-192.png' 
+          }); 
+        } catch (err) { 
+          console.warn('[PWA] Failed to show welcome notification:', err); 
+        }
+        
         // Start scheduled reminders now that permission is granted
-        try { startReminders(); } catch (err) { console.warn('Failed to start reminders', err); }
+        try { 
+          startReminders(); 
+        } catch (err) { 
+          console.warn('[PWA] Failed to start reminders:', err); 
+        }
       } else {
-        // keep prompt hidden for this session; per requirement it will re-appear on next app open until allowed
+        console.warn('[PWA] User denied notification permission or closed the dialog. Result:', result);
+        // Permission was denied or dismissed — hide prompt and don't show again unless user resets permissions
         setShowNotifyPrompt(false);
       }
     } catch (err) {
-      console.warn('Failed to request notification permission', err);
+      console.warn('[PWA] Exception requesting notification permission:', err);
+      setShowNotifyPrompt(false);
     }
   };
 
   const handleDeclineNotifications = () => {
-    // Close for current session; it will re-appear on next app open until user grants permission
+    // Close for current session
+    // Prompt will only re-appear if user later clears browser site permissions and permission reverts to 'default'
+    console.log('[PWA] User declined notification permission for now');
     setShowNotifyPrompt(false);
   };
 
