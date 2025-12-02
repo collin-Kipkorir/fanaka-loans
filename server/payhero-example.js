@@ -47,71 +47,98 @@ console.log('[payhero] PAYHERO_AUTH_TOKEN:', PAYHERO_AUTH_TOKEN ? '***set***' : 
 console.log('[payhero] PAYHERO_CALLBACK_URL:', PAYHERO_CALLBACK_URL);
 
 app.post('/api/payhero/stk', async (req, res) => {
-  const { phone, amount, accountRef } = req.body || {};
-  
-  console.log('[payhero] STK request received:', { phone, amount, accountRef });
-  
-  // Validation
-  if (!phone || !amount) {
-    console.warn('[payhero] Missing phone or amount');
-    return res.status(400).json({ success: false, error: 'Missing phone or amount' });
-  }
-
-  // Normalize phone: ensure it starts with 254
-  let normalizedPhone = phone.replace(/^0/, '254');
-  if (!normalizedPhone.startsWith('254')) {
-    normalizedPhone = '254' + normalizedPhone;
-  }
-
   try {
-    // Build PayHero STK push request
-    const payload = {
-      merchant_id: PAYHERO_ACCOUNT_ID,
-      merchant_channel_id: PAYHERO_CHANNEL_ID,
-      msisdn: normalizedPhone,
-      amount: Math.round(amount), // Ensure integer
-      account_reference: accountRef || 'FANAKA_COLLATERAL',
-      transaction_desc: 'Fanaka Loans - Processing Fee',
-      callback_url: PAYHERO_CALLBACK_URL,
-    };
+    // Accept incoming request body and normalize fields
+    const body = req.body || {};
+    const rawPhone = body.phone || body.phone_number || body.msisdn;
+    const rawAmount = body.amount;
+    const rawAccountRef = body.accountRef || body.account_reference || (body.metadata && body.metadata.account_reference);
+    const rawCustomerName = body.customerName || body.customer_name || body.customer;
 
-    console.log('[payhero] Payload to send:', payload);
+    console.log('[payhero] STK request received (raw body):', body);
 
-    // Call PayHero API
-    const payHeroUrl = `${PAYHERO_BASE_URL}/api/v2/express-payment`;
+    // Validation
+    if (!rawPhone || !rawAmount) {
+      console.warn('[payhero] Missing phone or amount - request body:', body);
+      return res.status(400).json({ success: false, error: 'Missing phone or amount' });
+    }
+
+    // If the incoming body already matches PayHero v2 shape, use it directly (but ensure reference exists)
+    let payload = null;
+    if (body.phone_number && body.channel_id && body.reference) {
+      payload = { ...body };
+      // Ensure callback_url is present
+      if (!payload.callback_url) payload.callback_url = PAYHERO_CALLBACK_URL;
+    } else {
+      // Normalize phone: convert local 07xxx to 254xxxx
+      let normalizedPhone = String(rawPhone).replace(/^0/, '254');
+      if (!normalizedPhone.startsWith('254')) normalizedPhone = '254' + normalizedPhone;
+
+      // Build PayHero v2 payload
+      const reference = `TX${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const customer_label = rawCustomerName || 'Fanaka Loans Customer';
+
+      payload = {
+        amount: Math.round(rawAmount),
+        phone_number: normalizedPhone,
+        channel_id: PAYHERO_CHANNEL_ID,
+        provider: 'mpesa',
+        reference: reference,
+        customer_name: customer_label,
+        callback_url: PAYHERO_CALLBACK_URL,
+        metadata: {
+          account_reference: rawAccountRef || 'FANAKA_COLLATERAL',
+        },
+      };
+
+      console.log('[payhero] Normalized payload to send:', payload);
+    }
+
+    // Call PayHero API (v2 initiate endpoint)
+    const payHeroUrl = `${PAYHERO_BASE_URL.replace(/\/$/, '')}/v2/payments/initiate`;
     console.log('[payhero] Calling PayHero at:', payHeroUrl);
+
+    // Normalize Authorization header: allow tokens provided as raw token and prefix with Bearer if missing
+    let authHeader = PAYHERO_AUTH_TOKEN || '';
+    if (authHeader && !/^Bearer\s+/i.test(authHeader) && !/^Basic\s+/i.test(authHeader)) {
+      authHeader = `Bearer ${authHeader}`;
+    }
 
     const response = await fetch(payHeroUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': PAYHERO_AUTH_TOKEN,
+        'Accept': 'application/json',
+        'Authorization': authHeader,
       },
       body: JSON.stringify(payload),
     });
 
-    let responseBody;
+    let responseBody = null;
+    let rawText = null;
     try {
       responseBody = await response.json();
     } catch (parseErr) {
-      console.error('[payhero] Failed to parse response JSON:', parseErr);
-      // Try to get raw text
-      const responseText = await response.text();
-      console.error('[payhero] Raw response:', responseText);
-      responseBody = { error: 'Invalid response from PayHero', raw: responseText };
+      console.warn('[payhero] Response not JSON or empty:', parseErr && parseErr.message ? parseErr.message : parseErr);
+      try {
+        rawText = await response.text();
+        console.warn('[payhero] Raw response text:', rawText);
+      } catch (e) {
+        console.error('[payhero] Failed to read raw response text:', e);
+      }
     }
 
     console.log('[payhero] API response status:', response.status);
-    console.log('[payhero] API response body:', responseBody);
+    console.log('[payhero] API response body (parsed):', responseBody, 'raw:', rawText);
 
     // Handle PayHero response
-    if (!response.ok || !responseBody.success) {
-      const errorMsg = responseBody.message || responseBody.error || 'PayHero API error';
+    if (!response.ok || !responseBody?.success) {
+      const errorMsg = (responseBody && (responseBody.message || responseBody.error)) || rawText || 'PayHero API error';
       console.warn('[payhero] API error:', errorMsg);
       return res.status(response.status || 400).json({
         success: false,
         error: errorMsg,
-        apiResponse: responseBody,
+        apiResponse: responseBody || { raw: rawText },
       });
     }
 
