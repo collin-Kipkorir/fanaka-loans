@@ -1,7 +1,7 @@
 // Simple Vercel serverless health-check for PayHero env vars
 // Returns boolean presence for each required env var (does NOT return secrets)
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -23,4 +23,4 @@ module.exports = async (req, res) => {
     console.error('[api/payhero/health] error:', err && err.stack ? err.stack : err);
     return res.status(500).json({ ok: false, error: err && err.message ? err.message : String(err) });
   }
-};
+}

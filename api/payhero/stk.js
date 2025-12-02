@@ -1,7 +1,7 @@
 // Vercel Serverless function: /api/payhero/stk
 // Proxies STK push requests to PayHero. Keep PayHero credentials in Vercel Environment Variables.
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
@@ -86,4 +86,4 @@ module.exports = async (req, res) => {
     // Also include stack in the body for immediate debugging (remove later)
     return res.status(500).json(payload);
   }
-};
+}
