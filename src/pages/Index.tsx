@@ -12,6 +12,7 @@ import { LoanHistory } from '@/components/loan/LoanHistory';
 import { Notification } from '@/components/ui/notification';
 import NotificationPermissionPrompt from '@/components/ui/NotificationPermissionPrompt';
 import { LoanApprovalToast } from '@/components/landing/LoanApprovalToast';
+import ConfirmExitDialog from '@/components/ui/ConfirmExitDialog';
 
 type Screen = 'landing' | 'login' | 'register' | 'otp' | 'dashboard' | 'apply' | 'repayment' | 'collateral-payment' | 'history';
 
@@ -27,6 +28,7 @@ const Index = () => {
   const [phoneForOTP, setPhoneForOTP] = useState('');
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
   const [showNotifyPrompt, setShowNotifyPrompt] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Auto-redirect to dashboard if user is authenticated
   React.useEffect(() => {
@@ -34,6 +36,26 @@ const Index = () => {
       setCurrentScreen('dashboard');
     }
   }, [user, currentScreen]);
+
+  // Handle Android back button (Capacitor event)
+  React.useEffect(() => {
+    const handleBackButton = () => {
+      // If on landing or login, show exit confirmation
+      if (currentScreen === 'landing' || currentScreen === 'login' || currentScreen === 'register') {
+        setShowExitConfirm(true);
+        return;
+      }
+      // Otherwise, navigate back: from detail screens → dashboard, from dashboard → landing
+      if (currentScreen === 'dashboard') {
+        setCurrentScreen('landing');
+      } else {
+        setCurrentScreen('dashboard');
+      }
+    };
+
+    document.addEventListener('backbutton', handleBackButton);
+    return () => document.removeEventListener('backbutton', handleBackButton);
+  }, [currentScreen]);
 
   const handleSwitchToRegister = () => {
     setAuthMode('register');
@@ -257,6 +279,25 @@ const Index = () => {
         show={showNotifyPrompt}
         onAllow={handleAllowNotifications}
         onDecline={handleDeclineNotifications}
+      />
+
+      {/* Confirm exit dialog (shows when back button pressed on home page) */}
+      <ConfirmExitDialog
+        show={showExitConfirm}
+        onStay={() => setShowExitConfirm(false)}
+        onExit={() => {
+          // Exit the app
+          if (typeof window !== 'undefined' && 'cordova' in window) {
+            // Cordova/Capacitor apps
+            const navApp = (window as Record<string, unknown>).navigator as Record<string, unknown>;
+            if (navApp && navApp.app) {
+              (navApp.app as Record<string, () => void>).exitApp();
+            }
+          } else {
+            // Web fallback
+            window.close();
+          }
+        }}
       />
       
       {/* Notifications */}
