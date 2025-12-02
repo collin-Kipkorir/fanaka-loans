@@ -8,6 +8,20 @@ module.exports = async (req, res) => {
   }
 
   try {
+    console.log('[api/payhero/stk] invoked');
+    console.log('[api/payhero/stk] method:', req.method);
+    // Log whether key env vars are present (don't print secrets)
+    console.log('[api/payhero/stk] env: PAYHERO_BASE_URL=', !!process.env.PAYHERO_BASE_URL, 'PAYHERO_AUTH_TOKEN=', !!process.env.PAYHERO_AUTH_TOKEN, 'PAYHERO_CHANNEL_ID=', !!process.env.PAYHERO_CHANNEL_ID);
+
+    // Normalize / inspect incoming body safely for debugging
+    let incomingBody = req.body;
+    try {
+      if (typeof incomingBody === 'string') incomingBody = JSON.parse(incomingBody);
+    } catch (e) {
+      console.log('[api/payhero/stk] failed to parse string body, leaving raw');
+    }
+    console.log('[api/payhero/stk] incoming body:', incomingBody);
+
     const PAYHERO_BASE = process.env.PAYHERO_BASE_URL || 'https://backend.payhero.co.ke';
     const AUTH = process.env.PAYHERO_AUTH_TOKEN || '';
     const DEFAULT_CHANNEL_ID = process.env.PAYHERO_CHANNEL_ID;
@@ -41,6 +55,8 @@ module.exports = async (req, res) => {
       callback_url: callback_url,
     };
 
+    // Perform outbound call to PayHero
+    console.log('[api/payhero/stk] forwarding to:', `${PAYHERO_BASE}/api/v2/payments`, 'payload:', payload);
     const fetchRes = await fetch(`${PAYHERO_BASE}/api/v2/payments`, {
       method: 'POST',
       headers: {
@@ -49,15 +65,25 @@ module.exports = async (req, res) => {
       },
       body: JSON.stringify(payload),
     });
-
     const text = await fetchRes.text();
     let data;
-    try { data = JSON.parse(text); } catch (e) { data = { raw: text }; }
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      console.log('[api/payhero/stk] non-JSON response from PayHero:', text);
+      data = { raw: text };
+    }
+
+    console.log('[api/payhero/stk] PayHero status:', fetchRes.status, 'response:', data);
 
     // Mirror status and body back to the caller
-    res.status(fetchRes.status).json(data);
+    return res.status(fetchRes.status).json(data);
   } catch (err) {
-    console.error('[api/payhero/stk] Error:', err);
-    res.status(500).json({ error: err.message });
+    // Log full error and return stack to help debug server errors in Vercel logs
+    console.error('[api/payhero/stk] Error:', err && err.stack ? err.stack : err);
+    const payload = { error: err && err.message ? err.message : String(err) };
+    if (process.env.NODE_ENV !== 'production') payload.stack = err && err.stack;
+    // Also include stack in the body for immediate debugging (remove later)
+    return res.status(500).json(payload);
   }
 };
