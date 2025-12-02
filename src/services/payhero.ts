@@ -10,8 +10,12 @@ export async function initiateStkPush(
   accountRef: string
 ): Promise<StkPushResponse> {
   try {
-    const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:4100/api';
-    const url = `${apiBase}/payhero/stk`;
+  // Prefer an explicit VITE_API_BASE when set to a public host.
+  // Fallback to same-origin `/api` for builds where VITE_API_BASE is missing
+  // or still points to localhost (so deployed sites don't call localhost:4100).
+  const rawBase = import.meta.env.VITE_API_BASE;
+  const apiBase = rawBase && !/localhost|127\.0\.0\.1/.test(rawBase) ? rawBase : '/api';
+  const url = `${apiBase.replace(/\/$/, '')}/payhero/stk`;
 
     console.log('[payhero] calling URL:', url);
     console.log('[payhero] payload:', { phone, amount, customerName, accountRef });
@@ -67,8 +71,9 @@ export async function checkPaymentStatus(
   paymentReference: string
 ): Promise<StatusCheckResponse> {
   try {
-    const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:4100/api';
-    const url = `${apiBase}/payhero/status?reference=${encodeURIComponent(paymentReference)}`;
+  const rawBase = import.meta.env.VITE_API_BASE;
+  const apiBase = rawBase && !/localhost|127\.0\.0\.1/.test(rawBase) ? rawBase : '/api';
+  const url = `${apiBase.replace(/\/$/, '')}/payhero/status?reference=${encodeURIComponent(paymentReference)}`;
 
     console.log('[payhero] checking status for:', paymentReference);
 
