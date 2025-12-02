@@ -1,7 +1,19 @@
 const express = require('express');
 const app = express();
 const fetch = require('node-fetch');
-require('dotenv').config({ path: '.env.local' });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
+
+// CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json());
 
@@ -20,6 +32,7 @@ console.log('  ACCOUNT_ID:', PAYHERO_CONFIG.ACCOUNT_ID);
 console.log('  CHANNEL_ID:', PAYHERO_CONFIG.CHANNEL_ID);
 console.log('  CALLBACK_URL:', PAYHERO_CONFIG.CALLBACK_URL);
 console.log('  AUTH_TOKEN set:', !!PAYHERO_CONFIG.AUTH_TOKEN);
+console.log('  AUTH_TOKEN:', PAYHERO_CONFIG.AUTH_TOKEN);
 
 // STK Push endpoint
 app.post('/api/payhero/stk', async (req, res) => {
@@ -42,20 +55,33 @@ app.post('/api/payhero/stk', async (req, res) => {
       normalizedPhone = '254' + normalizedPhone;
     }
 
-    // Build PayHero v2 payload
+    // Build PayHero v2 payload - include several field name variants to match API expectations
+    const normalizedReference = account_reference || reference || `TX${Date.now()}`;
+    const channelIdNum = parseInt(channel_id || PAYHERO_CONFIG.CHANNEL_ID);
+
+    // PayHero expects specific keys & formats per their docs:
+    // amount (Integer), phone_number (local format starting with 0), channel_id (Integer), provider ('m-pesa'), external_reference, customer_name, callback_url
+    // Convert international 2547... to local 07... format because the docs example uses local phone format
+    let phoneForApi = normalizedPhone;
+    if (phoneForApi.startsWith('254')) {
+      // 2547XXXXXXXX -> 07XXXXXXXX
+      phoneForApi = '0' + phoneForApi.slice(3);
+    }
+
     const payload = {
-      merchant_id: parseInt(PAYHERO_CONFIG.ACCOUNT_ID),
-      merchant_channel_id: parseInt(channel_id || PAYHERO_CONFIG.CHANNEL_ID),
-      msisdn: normalizedPhone,
       amount: amount,
-      account_reference: account_reference || reference || 'unknown',
-      transaction_desc: `Processing Fee - ${customer_name || customerName || 'Customer'}`,
+      phone_number: phoneForApi,
+      channel_id: channelIdNum,
+      provider: 'm-pesa',
+      external_reference: normalizedReference,
+      customer_name: customer_name || customerName || 'Customer',
       callback_url: PAYHERO_CONFIG.CALLBACK_URL,
     };
 
     console.log('[payhero] Normalized payload:', payload);
+    console.log('[payhero] JSON body to send:', JSON.stringify(payload));
 
-    // Call PayHero API
+    // Call PayHero API - use canonical payments endpoint
     const response = await fetch(`${PAYHERO_CONFIG.BASE_URL}/api/v2/payments`, {
       method: 'POST',
       headers: {
@@ -77,6 +103,7 @@ app.post('/api/payhero/stk', async (req, res) => {
     }
 
     console.log('[payhero] Response status:', response.status);
+    console.log('[payhero] Response text:', text);
     console.log('[payhero] Response data:', data);
 
     if (!response.ok) {
