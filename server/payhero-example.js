@@ -16,6 +16,13 @@
     POST /api/payhero/callback - Webhook receiver for payment status
 */
 
+// Load .env.local if it exists
+try {
+  require('dotenv').config({ path: '../.env.local' });
+} catch (err) {
+  console.warn('[payhero] dotenv not installed or .env.local not found');
+}
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
@@ -32,13 +39,21 @@ const PAYHERO_CHANNEL_ID = process.env.PAYHERO_CHANNEL_ID || process.env.VITE_PA
 const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN || process.env.VITE_PAYHERO_AUTH_TOKEN;
 const PAYHERO_CALLBACK_URL = process.env.PAYHERO_CALLBACK_URL || process.env.VITE_PAYHERO_CALLBACK_URL || 'http://localhost:8080/api/payment-callback';
 
-console.log('[payhero] Using account', PAYHERO_ACCOUNT_ID, 'channel', PAYHERO_CHANNEL_ID);
+console.log('[payhero] Server starting...');
+console.log('[payhero] PAYHERO_BASE_URL:', PAYHERO_BASE_URL);
+console.log('[payhero] PAYHERO_ACCOUNT_ID:', PAYHERO_ACCOUNT_ID);
+console.log('[payhero] PAYHERO_CHANNEL_ID:', PAYHERO_CHANNEL_ID);
+console.log('[payhero] PAYHERO_AUTH_TOKEN:', PAYHERO_AUTH_TOKEN ? '***set***' : '***NOT SET***');
+console.log('[payhero] PAYHERO_CALLBACK_URL:', PAYHERO_CALLBACK_URL);
 
 app.post('/api/payhero/stk', async (req, res) => {
   const { phone, amount, accountRef } = req.body || {};
   
+  console.log('[payhero] STK request received:', { phone, amount, accountRef });
+  
   // Validation
   if (!phone || !amount) {
+    console.warn('[payhero] Missing phone or amount');
     return res.status(400).json({ success: false, error: 'Missing phone or amount' });
   }
 
@@ -60,10 +75,12 @@ app.post('/api/payhero/stk', async (req, res) => {
       callback_url: PAYHERO_CALLBACK_URL,
     };
 
-    console.log('[payhero] Forwarding STK request:', { phone: normalizedPhone, amount, accountRef });
+    console.log('[payhero] Payload to send:', payload);
 
     // Call PayHero API
     const payHeroUrl = `${PAYHERO_BASE_URL}/api/v2/express-payment`;
+    console.log('[payhero] Calling PayHero at:', payHeroUrl);
+
     const response = await fetch(payHeroUrl, {
       method: 'POST',
       headers: {
@@ -73,8 +90,19 @@ app.post('/api/payhero/stk', async (req, res) => {
       body: JSON.stringify(payload),
     });
 
-    const responseBody = await response.json();
-    console.log('[payhero] API response:', responseBody);
+    let responseBody;
+    try {
+      responseBody = await response.json();
+    } catch (parseErr) {
+      console.error('[payhero] Failed to parse response JSON:', parseErr);
+      // Try to get raw text
+      const responseText = await response.text();
+      console.error('[payhero] Raw response:', responseText);
+      responseBody = { error: 'Invalid response from PayHero', raw: responseText };
+    }
+
+    console.log('[payhero] API response status:', response.status);
+    console.log('[payhero] API response body:', responseBody);
 
     // Handle PayHero response
     if (!response.ok || !responseBody.success) {
@@ -95,10 +123,10 @@ app.post('/api/payhero/stk', async (req, res) => {
       requestId: responseBody.request_id || null,
     });
   } catch (err) {
-    console.error('[payhero] Request failed:', err);
+    console.error('[payhero] Request failed:', err.message || err);
     return res.status(500).json({
       success: false,
-      error: String(err),
+      error: String(err.message || err),
     });
   }
 });
