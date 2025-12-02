@@ -5,16 +5,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Shield, Loader2, CheckCircle, Smartphone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { initiateStkPush } from '@/services/payhero';
 
 interface CollateralPaymentProps {
   onBack: () => void;
 }
 
 export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) => {
-  const [pin, setPin] = useState('');
+  const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const { currentLoan, payCollateralFee, addNotification } = useAuth();
+  const [isPending, setIsPending] = useState(false);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const { currentLoan, payCollateralFee, addNotification, user } = useAuth();
+
+  // initialize phone from user context when available
+  React.useEffect(() => {
+    if (user?.phone) setPhone(user.phone);
+  }, [user]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -27,16 +35,6 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!pin) {
-      addNotification('Please enter your M-Pesa PIN', 'error');
-      return;
-    }
-    
-    if (pin !== '1234') {
-      addNotification('Invalid M-Pesa PIN', 'error');
-      return;
-    }
-
     if (!currentLoan) {
       addNotification('No active loan found', 'error');
       return;
@@ -45,14 +43,25 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
     setIsLoading(true);
     
     try {
-      const result = await payCollateralFee(currentLoan.id, currentLoan.processingFee || 0);
-      
-      if (result.success) {
-        setIsSuccess(true);
-        addNotification('Processing fee paid successfully!', 'success');
-      } else {
-        addNotification('Payment failed. Please try again.', 'error');
+      // Validate phone
+      if (!phone || phone.length < 9) {
+        addNotification('Please enter a valid phone number', 'error');
+        setIsLoading(false);
+        return;
       }
+
+      const stk = await initiateStkPush(phone, currentLoan.processingFee || 0, `loan_${currentLoan.id}`);
+      if (!stk.success) {
+        addNotification(`STK Push failed: ${stk.error || stk.message || 'unknown'}`, 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      // Mark as pending: do NOT simulate final payment here. Wait for provider callback/webhook.
+      setIsPending(true);
+      setTransactionId(stk.requestId || null);
+      setFeedback('STK push sent — confirm on your phone. The payment will be processed once you approve it on your device.');
+      addNotification('STK initiated. Check your phone to approve the MPesa prompt.', 'info');
     } catch (error) {
       addNotification('Payment failed. Please try again.', 'error');
     } finally {
@@ -60,7 +69,7 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
     }
   };
 
-  if (isSuccess) {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-background">
         <div className="bg-gradient-primary text-white p-6">
@@ -72,19 +81,18 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold">Payment Successful</h1>
+          <h1 className="text-2xl font-bold">Payment Pending</h1>
         </div>
-        
+
         <div className="px-6 -mt-8">
           <Card className="shadow-card">
             <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-success" />
+              <div className="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Smartphone className="h-8 w-8 text-warning" />
               </div>
-              <h3 className="text-xl font-bold text-success mb-2">Payment Successful!</h3>
+              <h3 className="text-xl font-bold text-warning mb-2">STK Push Sent</h3>
               <p className="text-muted-foreground mb-6">
-                Your processing fee of {formatCurrency(currentLoan?.processingFee || 0)} has been paid successfully.
-                Your loan is now being processed.
+                {feedback || 'Please approve the M-Pesa prompt on your phone to complete the payment.'}
               </p>
               <div className="bg-muted rounded-lg p-4 mb-6">
                 <p className="text-sm text-muted-foreground mb-2">Transaction Details</p>
@@ -94,12 +102,12 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
                     <span className="font-medium">{formatCurrency(currentLoan?.processingFee || 0)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Transaction ID:</span>
-                    <span className="font-medium">MP{Date.now().toString().slice(-8)}</span>
+                    <span>Request ID:</span>
+                    <span className="font-medium">{transactionId || '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Status:</span>
-                    <span className="font-medium text-success">Completed</span>
+                    <span className="font-medium text-warning">Pending</span>
                   </div>
                 </div>
               </div>
@@ -159,47 +167,46 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
             </div>
             
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Smartphone className="h-5 w-5 text-primary" />
-                <span className="font-medium">M-Pesa STK Push</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                A payment request will be sent to your phone. Enter your M-Pesa PIN to complete the payment.
-              </p>
+                <div className="flex items-center gap-3 mb-3">
+                  <Smartphone className="h-5 w-5 text-primary" />
+                  <span className="font-medium">M-Pesa STK Push</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  A payment request will be sent to the phone number below. You'll receive a prompt from M-Pesa to approve the payment.
+                </p>
             </div>
             
-            <form onSubmit={handlePayment} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="pin">M-Pesa PIN</Label>
-                <Input
-                  id="pin"
-                  type="password"
-                  placeholder="Enter 4-digit PIN"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  maxLength={4}
-                  className="text-base text-center text-2xl tracking-widest"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Demo PIN: 1234
-                </p>
-              </div>
+              <form onSubmit={handlePayment} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Payment Phone Number</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="2547XXXXXXXX"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="text-base"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    We'll send the M-Pesa prompt to this number. Make sure it's the number linked to your M-Pesa account.
+                  </p>
+                </div>
               
-              <Button 
-                type="submit" 
-                className="w-full bg-gradient-primary"
-                disabled={isLoading || pin.length !== 4}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing Payment...
-                  </>
-                ) : (
-                  `Pay ${formatCurrency(currentLoan?.processingFee || 0)}`
-                )}
-              </Button>
-            </form>
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-primary"
+                  disabled={isLoading || phone.length < 9}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending STK Push...
+                    </>
+                  ) : (
+                    `Pay ${formatCurrency(currentLoan?.processingFee || 0)}`
+                  )}
+                </Button>
+              </form>
           </CardContent>
         </Card>
       </div>
