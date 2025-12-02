@@ -1,179 +1,147 @@
-/*
-  PayHero STK Push integration server.
-
-  This server forwards STK push requests to PayHero API with proper credentials.
-  The PayHero API will send the STK prompt to the user's phone.
-
-  Environment variables (from .env.local or process.env):
-    PAYHERO_BASE_URL - API endpoint (https://backend.payhero.co.ke)
-    PAYHERO_ACCOUNT_ID - Account ID
-    PAYHERO_CHANNEL_ID - Channel ID
-    PAYHERO_AUTH_TOKEN - Basic auth token
-    PAYHERO_CALLBACK_URL - Webhook callback for payment notifications
-
-  Endpoints:
-    POST /api/payhero/stk - Initiate STK push
-    POST /api/payhero/callback - Webhook receiver for payment status
-*/
-
-// Load .env.local if it exists
-try {
-  require('dotenv').config({ path: '../.env.local' });
-} catch (err) {
-  console.warn('[payhero] dotenv not installed or .env.local not found');
-}
-
 const express = require('express');
-const bodyParser = require('body-parser');
-const fetch = require('node-fetch');
-
 const app = express();
-app.use(bodyParser.json({ limit: '1mb' }));
+const fetch = require('node-fetch');
+require('dotenv').config({ path: '.env.local' });
 
-const PORT = process.env.PORT || 4100;
+app.use(express.json());
 
-// Load PayHero config from environment
-const PAYHERO_BASE_URL = process.env.PAYHERO_BASE_URL || process.env.VITE_PAYHERO_BASE_URL || 'https://backend.payhero.co.ke';
-const PAYHERO_ACCOUNT_ID = process.env.PAYHERO_ACCOUNT_ID || process.env.VITE_PAYHERO_ACCOUNT_ID;
-const PAYHERO_CHANNEL_ID = process.env.PAYHERO_CHANNEL_ID || process.env.VITE_PAYHERO_CHANNEL_ID;
-const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN || process.env.VITE_PAYHERO_AUTH_TOKEN;
-const PAYHERO_CALLBACK_URL = process.env.PAYHERO_CALLBACK_URL || process.env.VITE_PAYHERO_CALLBACK_URL || 'http://localhost:8080/api/payment-callback';
+const PAYHERO_CONFIG = {
+  BASE_URL: process.env.VITE_PAYHERO_BASE_URL || 'https://backend.payhero.co.ke',
+  ACCOUNT_ID: process.env.VITE_PAYHERO_ACCOUNT_ID || '3278',
+  CHANNEL_ID: process.env.VITE_PAYHERO_CHANNEL_ID || '3838',
+  AUTH_TOKEN: process.env.VITE_PAYHERO_AUTH_TOKEN || '',
+  CALLBACK_URL: process.env.VITE_PAYHERO_CALLBACK_URL || 'http://localhost:5000/api/payment-callback',
+};
 
-console.log('[payhero] Server starting...');
-console.log('[payhero] PAYHERO_BASE_URL:', PAYHERO_BASE_URL);
-console.log('[payhero] PAYHERO_ACCOUNT_ID:', PAYHERO_ACCOUNT_ID);
-console.log('[payhero] PAYHERO_CHANNEL_ID:', PAYHERO_CHANNEL_ID);
-console.log('[payhero] PAYHERO_AUTH_TOKEN:', PAYHERO_AUTH_TOKEN ? '***set***' : '***NOT SET***');
-console.log('[payhero] PAYHERO_CALLBACK_URL:', PAYHERO_CALLBACK_URL);
+// Log configuration on startup
+console.log('[payhero] Configuration loaded:');
+console.log('  BASE_URL:', PAYHERO_CONFIG.BASE_URL);
+console.log('  ACCOUNT_ID:', PAYHERO_CONFIG.ACCOUNT_ID);
+console.log('  CHANNEL_ID:', PAYHERO_CONFIG.CHANNEL_ID);
+console.log('  CALLBACK_URL:', PAYHERO_CONFIG.CALLBACK_URL);
+console.log('  AUTH_TOKEN set:', !!PAYHERO_CONFIG.AUTH_TOKEN);
 
+// STK Push endpoint
 app.post('/api/payhero/stk', async (req, res) => {
   try {
-    // Accept incoming request body and normalize fields
-    const body = req.body || {};
-    const rawPhone = body.phone || body.phone_number || body.msisdn;
-    const rawAmount = body.amount;
-    const rawAccountRef = body.accountRef || body.account_reference || (body.metadata && body.metadata.account_reference);
-    const rawCustomerName = body.customerName || body.customer_name || body.customer;
+    const { phone, amount, customer_name, account_reference, phone_number, channel_id, reference, customer_name: customerName, metadata } = req.body;
 
-    console.log('[payhero] STK request received (raw body):', body);
+    console.log('[payhero] STK request received:', req.body);
 
-    // Validation
-    if (!rawPhone || !rawAmount) {
-      console.warn('[payhero] Missing phone or amount - request body:', body);
-      return res.status(400).json({ success: false, error: 'Missing phone or amount' });
+    // Normalize phone number from either v2 or legacy format
+    let normalizedPhone = phone || phone_number;
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: 'Missing phone or phone_number' });
     }
 
-    // If the incoming body already matches PayHero v2 shape, use it directly (but ensure reference exists)
-    let payload = null;
-    if (body.phone_number && body.channel_id && body.reference) {
-      payload = { ...body };
-      // Ensure callback_url is present
-      if (!payload.callback_url) payload.callback_url = PAYHERO_CALLBACK_URL;
-    } else {
-      // Normalize phone: convert local 07xxx to 254xxxx
-      let normalizedPhone = String(rawPhone).replace(/^0/, '254');
-      if (!normalizedPhone.startsWith('254')) normalizedPhone = '254' + normalizedPhone;
-
-      // Build PayHero v2 payload
-      const reference = `TX${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      const customer_label = rawCustomerName || 'Fanaka Loans Customer';
-
-      payload = {
-        amount: Math.round(rawAmount),
-        phone_number: normalizedPhone,
-        channel_id: PAYHERO_CHANNEL_ID,
-        provider: 'mpesa',
-        reference: reference,
-        customer_name: customer_label,
-        callback_url: PAYHERO_CALLBACK_URL,
-        metadata: {
-          account_reference: rawAccountRef || 'FANAKA_COLLATERAL',
-        },
-      };
-
-      console.log('[payhero] Normalized payload to send:', payload);
+    // Convert local format to international
+    if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = '254' + normalizedPhone.slice(1);
+    }
+    if (!normalizedPhone.startsWith('254')) {
+      normalizedPhone = '254' + normalizedPhone;
     }
 
-    // Call PayHero API (v2 initiate endpoint)
-    const payHeroUrl = `${PAYHERO_BASE_URL.replace(/\/$/, '')}/v2/payments/initiate`;
-    console.log('[payhero] Calling PayHero at:', payHeroUrl);
+    // Build PayHero v2 payload
+    const payload = {
+      merchant_id: parseInt(PAYHERO_CONFIG.ACCOUNT_ID),
+      merchant_channel_id: parseInt(channel_id || PAYHERO_CONFIG.CHANNEL_ID),
+      msisdn: normalizedPhone,
+      amount: amount,
+      account_reference: account_reference || reference || 'unknown',
+      transaction_desc: `Processing Fee - ${customer_name || customerName || 'Customer'}`,
+      callback_url: PAYHERO_CONFIG.CALLBACK_URL,
+    };
 
-    // Normalize Authorization header: allow tokens provided as raw token and prefix with Bearer if missing
-    let authHeader = PAYHERO_AUTH_TOKEN || '';
-    if (authHeader && !/^Bearer\s+/i.test(authHeader) && !/^Basic\s+/i.test(authHeader)) {
-      authHeader = `Bearer ${authHeader}`;
-    }
+    console.log('[payhero] Normalized payload:', payload);
 
-    const response = await fetch(payHeroUrl, {
+    // Call PayHero API
+    const response = await fetch(`${PAYHERO_CONFIG.BASE_URL}/api/v2/payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': authHeader,
+        'Authorization': PAYHERO_CONFIG.AUTH_TOKEN.startsWith('Basic ') 
+          ? PAYHERO_CONFIG.AUTH_TOKEN 
+          : `Basic ${PAYHERO_CONFIG.AUTH_TOKEN}`,
       },
       body: JSON.stringify(payload),
     });
 
-    let responseBody = null;
-    let rawText = null;
+    const text = await response.text();
+    let data = {};
     try {
-      responseBody = await response.json();
-    } catch (parseErr) {
-      console.warn('[payhero] Response not JSON or empty:', parseErr && parseErr.message ? parseErr.message : parseErr);
-      try {
-        rawText = await response.text();
-        console.warn('[payhero] Raw response text:', rawText);
-      } catch (e) {
-        console.error('[payhero] Failed to read raw response text:', e);
-      }
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      console.log('[payhero] Non-JSON response:', text);
+      data = { raw: text };
     }
 
-    console.log('[payhero] API response status:', response.status);
-    console.log('[payhero] API response body (parsed):', responseBody, 'raw:', rawText);
+    console.log('[payhero] Response status:', response.status);
+    console.log('[payhero] Response data:', data);
 
-    // Handle PayHero response
-    if (!response.ok || !responseBody?.success) {
-      const errorMsg = (responseBody && (responseBody.message || responseBody.error)) || rawText || 'PayHero API error';
-      console.warn('[payhero] API error:', errorMsg);
-      return res.status(response.status || 400).json({
+    if (!response.ok) {
+      return res.status(response.status).json({
         success: false,
-        error: errorMsg,
-        apiResponse: responseBody || { raw: rawText },
+        error: data.error || data.message || `PayHero API error: ${response.status}`,
+        status: response.status,
       });
     }
 
-    // Success: return transaction ID
-    return res.json({
+    res.json({
       success: true,
-      message: 'STK prompt sent successfully',
-      transactionId: responseBody.request_id || responseBody.transaction_id || null,
-      requestId: responseBody.request_id || null,
+      checkout_request_id: data.request_id || data.checkout_request_id,
+      request_id: data.request_id,
+      ...data,
     });
-  } catch (err) {
-    console.error('[payhero] Request failed:', err.message || err);
-    return res.status(500).json({
+  } catch (error) {
+    console.error('[payhero] Error:', error);
+    res.status(500).json({
       success: false,
-      error: String(err.message || err),
+      error: error.message,
     });
   }
 });
 
-// Webhook receiver for payment callbacks from PayHero
-app.post('/api/payhero/callback', (req, res) => {
-  const { request_id, status, amount, phone, message } = req.body || {};
-  console.log('[payhero] Payment callback received:', { request_id, status, amount, phone, message });
+// Status check endpoint
+app.get('/api/payhero/status', async (req, res) => {
+  try {
+    const { reference } = req.query;
 
-  // In production:
-  // 1. Validate signature (PayHero will provide a signature verification method)
-  // 2. Update database with payment status
-  // 3. Trigger notification to client via WebSocket or poll endpoint
-  // 4. Mark loan as paid and proceed with disbursement
+    if (!reference) {
+      return res.status(400).json({ error: 'Missing reference parameter' });
+    }
 
-  res.json({ received: true, request_id });
+    console.log('[payhero] Status check for:', reference);
+
+    // For now, return a stub response
+    // In production, this would query a database or call PayHero's status API
+    res.json({
+      success: false,
+      status: 'pending',
+      paid: false,
+    });
+  } catch (error) {
+    console.error('[payhero] Status check error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
 });
 
+// Callback webhook endpoint
+app.post('/api/payment-callback', (req, res) => {
+  try {
+    console.log('[payhero] Callback received:', req.body);
+    // Process callback and update payment status
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[payhero] Callback error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const PORT = process.env.PORT || 4100;
 app.listen(PORT, () => {
-  console.log('[payhero] Server listening on port', PORT);
-  console.log('[payhero] PayHero base URL:', PAYHERO_BASE_URL);
+  console.log(`[payhero] Server running on port ${PORT}`);
 });
-

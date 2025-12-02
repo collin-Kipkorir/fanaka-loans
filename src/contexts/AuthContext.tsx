@@ -8,7 +8,6 @@ export interface User {
   isAuthenticated: boolean;
   loanLimit?: number;
   hasCheckedLimit?: boolean;
-  loans?: Loan[];
 }
 
 export interface Loan {
