@@ -10,14 +10,8 @@ export async function initiateStkPush(
   accountRef: string
 ): Promise<StkPushResponse> {
   try {
-  // Prefer an explicit VITE_API_BASE when set to a public host.
-  // Fallback to same-origin `/api` for builds where VITE_API_BASE is missing,
-  // localhost, or points to private/local IPs (192.168.x, 10.x, 172.16-31.x).
-  const rawBase = import.meta.env.VITE_API_BASE;
-  // Detect localhost, loopback, or private IP ranges
-  const isLocalOrPrivate = rawBase && /localhost|127\.|192\.168|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\./.test(rawBase);
-  const apiBase = rawBase && !isLocalOrPrivate ? rawBase : '/api';
-  const url = `${apiBase.replace(/\/$/, '')}/payhero-stk`;
+    const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:4100/api';
+    const url = `${apiBase}/payhero/stk`;
 
     console.log('[payhero] calling URL:', url);
     console.log('[payhero] payload:', { phone, amount, customerName, accountRef });
@@ -73,11 +67,8 @@ export async function checkPaymentStatus(
   paymentReference: string
 ): Promise<StatusCheckResponse> {
   try {
-  const rawBase = import.meta.env.VITE_API_BASE;
-  // Detect localhost, loopback, or private IP ranges
-  const isLocalOrPrivate = rawBase && /localhost|127\.|192\.168|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\./.test(rawBase);
-  const apiBase = rawBase && !isLocalOrPrivate ? rawBase : '/api';
-  const url = `${apiBase.replace(/\/$/, '')}/payhero-status?reference=${encodeURIComponent(paymentReference)}`;
+    const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:4100/api';
+    const url = `${apiBase}/payhero/status?reference=${encodeURIComponent(paymentReference)}`;
 
     console.log('[payhero] checking status for:', paymentReference);
 
