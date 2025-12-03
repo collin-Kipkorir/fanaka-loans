@@ -66,6 +66,15 @@ export const usePaymentPolling = (options: UsePaymentPollingOptions = {}) => {
         try {
           const response = await checkPaymentStatus(reference);
 
+          // If we get a 404 on status endpoint (not yet deployed), treat STK success as payment queued
+          if (response.error && response.error.includes('Endpoint not found')) {
+            console.log('[polling] Status endpoint not available yet, assuming payment queued');
+            setStatus('completed');
+            stopPolling();
+            options.onSuccess?.({ success: true, status: 'QUEUED', error: null });
+            return;
+          }
+
           if (response.success || response.paid) {
             setStatus('completed');
             stopPolling();
