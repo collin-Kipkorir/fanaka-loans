@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://localhost:4100',
+        target: 'https://fanaka-loans.vercel.app',
         changeOrigin: true,
       },
     },
