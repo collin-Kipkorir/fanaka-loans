@@ -1,13 +1,13 @@
 {
   "functions": {
     "api/payhero/stk.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x"
     },
     "api/payhero/status.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x"
     },
     "api/payhero/health.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x"
     }
   }
 }
