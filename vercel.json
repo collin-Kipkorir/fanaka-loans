@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "api/payhero/*.cjs": {
-      "maxDuration": 30
-    }
-  }
-}
