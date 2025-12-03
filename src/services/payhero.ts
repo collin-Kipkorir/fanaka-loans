@@ -17,7 +17,7 @@ export async function initiateStkPush(
   // Detect localhost, loopback, or private IP ranges
   const isLocalOrPrivate = rawBase && /localhost|127\.|192\.168|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\./.test(rawBase);
   const apiBase = rawBase && !isLocalOrPrivate ? rawBase : '/api';
-  const url = `${apiBase.replace(/\/$/, '')}/payhero/stk`;
+  const url = `${apiBase.replace(/\/$/, '')}/payhero-stk`;
 
     console.log('[payhero] calling URL:', url);
     console.log('[payhero] payload:', { phone, amount, customerName, accountRef });
@@ -77,7 +77,7 @@ export async function checkPaymentStatus(
   // Detect localhost, loopback, or private IP ranges
   const isLocalOrPrivate = rawBase && /localhost|127\.|192\.168|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\./.test(rawBase);
   const apiBase = rawBase && !isLocalOrPrivate ? rawBase : '/api';
-  const url = `${apiBase.replace(/\/$/, '')}/payhero/status?reference=${encodeURIComponent(paymentReference)}`;
+  const url = `${apiBase.replace(/\/$/, '')}/payhero-status?reference=${encodeURIComponent(paymentReference)}`;
 
     console.log('[payhero] checking status for:', paymentReference);
 
