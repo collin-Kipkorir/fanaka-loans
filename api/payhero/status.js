@@ -2,6 +2,7 @@
 // Attempts to query PayHero for a payment status by external reference or request id.
 
 export default async function handler(req, res) {
+  // GET endpoint to check PayHero payment status by reference
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
