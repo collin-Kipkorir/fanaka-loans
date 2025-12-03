@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/payhero/*.mjs": {
+    "api/payhero/*.js": {
       "maxDuration": 30
     }
   }
