@@ -1,5 +1,5 @@
 export const PAYHERO_CONFIG = {
-  BASE_URL: import.meta.env.VITE_PAYHERO_BASE_URL || 'https://backend.payhero.co.ke',
+  BASE_URL: import.meta.env.VITE_PAYHERO_BASE_URL || 'https://api.payhero.co.ke',
   ACCOUNT_ID: import.meta.env.VITE_PAYHERO_ACCOUNT_ID || '3278',
   CHANNEL_ID: import.meta.env.VITE_PAYHERO_CHANNEL_ID || '3838',
   AUTH_TOKEN: import.meta.env.VITE_PAYHERO_AUTH_TOKEN || '',

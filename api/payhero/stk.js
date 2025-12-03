@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     }
     console.log('[api/payhero/stk] incoming body:', incomingBody);
 
-    const PAYHERO_BASE = process.env.PAYHERO_BASE_URL || 'https://backend.payhero.co.ke';
+    const PAYHERO_BASE = process.env.PAYHERO_BASE_URL || 'https://api.payhero.co.ke';
     const AUTH = process.env.PAYHERO_AUTH_TOKEN || '';
     const DEFAULT_CHANNEL_ID = process.env.PAYHERO_CHANNEL_ID;
     const CALLBACK_URL = process.env.PAYHERO_CALLBACK_URL || '';

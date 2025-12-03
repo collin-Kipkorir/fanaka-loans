@@ -8,7 +8,7 @@ export default async (req, res) => {
   }
 
   try {
-    const PAYHERO_BASE = process.env.PAYHERO_BASE_URL || 'https://backend.payhero.co.ke';
+    const PAYHERO_BASE = process.env.PAYHERO_BASE_URL || 'https://api.payhero.co.ke';
     const AUTH = process.env.PAYHERO_AUTH_TOKEN || '';
     const reference = req.query.reference || '';
 
