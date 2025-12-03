@@ -18,11 +18,11 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 const PAYHERO_CONFIG = {
-  BASE_URL: process.env.VITE_PAYHERO_BASE_URL || 'https://backend.payhero.co.ke',
-  ACCOUNT_ID: process.env.VITE_PAYHERO_ACCOUNT_ID || '3278',
-  CHANNEL_ID: process.env.VITE_PAYHERO_CHANNEL_ID || '3838',
-  AUTH_TOKEN: process.env.VITE_PAYHERO_AUTH_TOKEN || '',
-  CALLBACK_URL: process.env.VITE_PAYHERO_CALLBACK_URL || 'http://localhost:5000/api/payment-callback',
+  BASE_URL: process.env.PAYHERO_BASE_URL || 'https://api.payhero.co.ke',
+  ACCOUNT_ID: process.env.PAYHERO_ACCOUNT_ID || '3278',
+  CHANNEL_ID: process.env.PAYHERO_CHANNEL_ID || '3838',
+  AUTH_TOKEN: process.env.PAYHERO_AUTH_TOKEN || '',
+  CALLBACK_URL: process.env.PAYHERO_CALLBACK_URL || 'http://localhost:5000/api/payment-callback',
 };
 
 // Log configuration on startup
