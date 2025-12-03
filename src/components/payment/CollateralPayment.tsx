@@ -81,8 +81,13 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
       );
 
       if (result.success || result.checkout_request_id) {
-        // Start polling for payment status
-        startPolling(reference);
+        // PayHero may return an authoritative `reference` (server-side id).
+        // Prefer that for status checks; fall back to our generated external reference.
+        const pollReference = (result as any).reference || reference;
+        setPaymentReference(pollReference);
+
+        // Start polling for payment status using the PayHero `reference` when available
+        startPolling(pollReference);
         addNotification('STK push sent to your phone. Please enter your PIN.', 'success');
       } else {
         setTransactionState('failure');
