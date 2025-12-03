@@ -1,13 +1,7 @@
 {
   "functions": {
-    "api/payhero/stk.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/payhero/status.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/payhero/health.js": {
-      "runtime": "nodejs20.x"
+    "api/payhero/*.mjs": {
+      "maxDuration": 30
     }
   }
 }
