@@ -70,24 +70,25 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
 
     try {
       const formattedPhone = validateAndFormatPhone(phone);
-      const reference = generatePaymentReference();
-      setPaymentReference(reference);
+      const generatedReference = generatePaymentReference();
+      // Default to the generated external reference; we'll prefer PayHero's returned
+      // `reference` when available.
+      setPaymentReference(generatedReference);
 
       const result = await initiateStkPush(
         formattedPhone,
         currentLoan.processingFee || 0,
         'Customer',
-        reference
+        generatedReference
       );
 
       if (result.success || result.checkout_request_id) {
-        // PayHero may return an authoritative `reference` (server-side id).
-        // Prefer that for status checks; fall back to our generated external reference.
-        const pollReference = (result as any).reference || reference;
-        setPaymentReference(pollReference);
+        // Prefer PayHero's authoritative reference for polling if returned.
+  const authoritativeRef = result.reference || result.external_reference || generatedReference;
+        setPaymentReference(authoritativeRef);
 
-        // Start polling for payment status using the PayHero `reference` when available
-        startPolling(pollReference);
+  // Start polling using the authoritative reference and provide the expected amount
+  startPolling(authoritativeRef, currentLoan?.processingFee || 0);
         addNotification('STK push sent to your phone. Please enter your PIN.', 'success');
       } else {
         setTransactionState('failure');

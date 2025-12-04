@@ -25,6 +25,11 @@ const PAYHERO_CONFIG = {
   CALLBACK_URL: process.env.PAYHERO_CALLBACK_URL || 'http://localhost:5000/api/payment-callback',
 };
 
+// In-memory mapping from our external_reference -> PayHero reference
+// This allows clients to continue using their generated external_reference while
+// the server translates it to the PayHero `reference` when checking status.
+const referenceMap = new Map();
+
 // Log configuration on startup
 console.log('[payhero] Configuration loaded:');
 console.log('  BASE_URL:', PAYHERO_CONFIG.BASE_URL);
@@ -32,7 +37,13 @@ console.log('  ACCOUNT_ID:', PAYHERO_CONFIG.ACCOUNT_ID);
 console.log('  CHANNEL_ID:', PAYHERO_CONFIG.CHANNEL_ID);
 console.log('  CALLBACK_URL:', PAYHERO_CONFIG.CALLBACK_URL);
 console.log('  AUTH_TOKEN set:', !!PAYHERO_CONFIG.AUTH_TOKEN);
-console.log('  AUTH_TOKEN:', PAYHERO_CONFIG.AUTH_TOKEN);
+// Mask the auth token when logging to avoid leaking secrets in logs
+const maskedToken = PAYHERO_CONFIG.AUTH_TOKEN
+  ? (PAYHERO_CONFIG.AUTH_TOKEN.length > 12
+      ? PAYHERO_CONFIG.AUTH_TOKEN.slice(0, 12) + '...'
+      : PAYHERO_CONFIG.AUTH_TOKEN)
+  : '';
+console.log('  AUTH_TOKEN (masked):', maskedToken);
 
 // STK Push endpoint
 app.post('/api/payhero/stk', async (req, res) => {
@@ -82,7 +93,9 @@ app.post('/api/payhero/stk', async (req, res) => {
     console.log('[payhero] JSON body to send:', JSON.stringify(payload));
 
     // Call PayHero API - use canonical payments endpoint
-    const response = await fetch(`${PAYHERO_CONFIG.BASE_URL}/api/v2/payments`, {
+    const fullUrl = `${PAYHERO_CONFIG.BASE_URL}/api/v2/payments`;
+    console.log('[payhero] Full URL:', fullUrl);
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -106,6 +119,18 @@ app.post('/api/payhero/stk', async (req, res) => {
     console.log('[payhero] Response text:', text);
     console.log('[payhero] Response data:', data);
 
+    // If PayHero returned its authoritative reference, store a mapping so status
+    // checks that use the client-generated external_reference can be translated.
+    if (data && data.reference && payload.external_reference) {
+      try {
+        referenceMap.set(payload.external_reference, data.reference);
+        console.log('[payhero] Stored mapping:', payload.external_reference, '->', data.reference);
+      } catch (e) {
+        // non-fatal
+        console.log('[payhero] Failed to store reference mapping:', e.message);
+      }
+    }
+
     if (!response.ok) {
       return res.status(response.status).json({
         success: false,
@@ -118,6 +143,8 @@ app.post('/api/payhero/stk', async (req, res) => {
       success: true,
       checkout_request_id: data.request_id || data.checkout_request_id,
       request_id: data.request_id,
+      // Return PayHero data directly (includes their `reference`) so clients
+      // can switch to polling using the authoritative ID.
       ...data,
     });
   } catch (error) {
@@ -140,13 +167,46 @@ app.get('/api/payhero/status', async (req, res) => {
 
     console.log('[payhero] Status check for:', reference);
 
-    // For now, return a stub response
-    // In production, this would query a database or call PayHero's status API
-    res.json({
-      success: false,
-      status: 'pending',
-      paid: false,
+    // Proxy to PayHero transaction-status endpoint
+    const fullUrl = `${PAYHERO_CONFIG.BASE_URL}/api/v2/transaction-status?reference=${encodeURIComponent(reference)}`;
+    // If caller passed our external_reference, translate to PayHero's reference if we have it
+    let lookupReference = reference;
+    if (referenceMap.has(reference)) {
+      lookupReference = referenceMap.get(reference);
+      console.log('[payhero] Translated external_reference to PayHero reference:', reference, '->', lookupReference);
+    }
+
+    const forwardUrl = `${PAYHERO_CONFIG.BASE_URL}/api/v2/transaction-status?reference=${encodeURIComponent(lookupReference)}`;
+    console.log('[payhero] Forwarding status request to:', forwardUrl);
+
+    const response = await fetch(forwardUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': PAYHERO_CONFIG.AUTH_TOKEN.startsWith('Basic ')
+          ? PAYHERO_CONFIG.AUTH_TOKEN
+          : `Basic ${PAYHERO_CONFIG.AUTH_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
     });
+
+    const text = await response.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      console.log('[payhero] Non-JSON status response:', text);
+      data = { raw: text };
+    }
+
+    console.log('[payhero] Status response status:', response.status);
+    console.log('[payhero] Status response body:', data);
+
+    if (!response.ok) {
+      return res.status(response.status).json({ success: false, status: 'error', error: data.error_message || data.error || data.message || text });
+    }
+
+    // Forward PayHero's response directly
+    return res.status(200).json(data);
   } catch (error) {
     console.error('[payhero] Status check error:', error);
     res.status(500).json({

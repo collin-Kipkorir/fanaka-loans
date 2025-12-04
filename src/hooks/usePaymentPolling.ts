@@ -40,7 +40,7 @@ export const usePaymentPolling = (options: UsePaymentPollingOptions = {}) => {
   }, [stopPolling]);
 
   const startPolling = useCallback(
-    (reference: string) => {
+    (reference: string, fallbackAmount?: number) => {
       if (isPolling) return; // Prevent duplicate polling
 
       setIsPolling(true);
@@ -66,23 +66,34 @@ export const usePaymentPolling = (options: UsePaymentPollingOptions = {}) => {
         try {
           const response = await checkPaymentStatus(reference);
 
-          // If we get a 404 on status endpoint (not yet deployed), treat STK success as payment queued
-          if (response.error && response.error.includes('Endpoint not found')) {
-            console.log('[polling] Status endpoint not available yet, assuming payment queued');
-            setStatus('completed');
-            stopPolling();
-            options.onSuccess?.({ success: true, status: 'QUEUED', error: null });
-            return;
+          // If PayHero didn't include the amount yet (common for QUEUED),
+          // fill it from the provided fallbackAmount so the UI can display the expected amount.
+          if ((response.amount === undefined || response.amount === null || response.amount === 0) && typeof fallbackAmount === 'number' && fallbackAmount > 0) {
+            response.amount = fallbackAmount;
           }
 
-          if (response.success || response.paid) {
+          // If the status endpoint is not available, log and let the polling continue
+          if (response.error && response.error.includes('Endpoint not found')) {
+            console.log('[polling] Status endpoint not available yet, will retry until timeout');
+            return; // try again on next interval
+          }
+
+          // PayHero returns a `status` string: QUEUED, SUCCESS, FAILED
+          // Only treat as success when status === 'SUCCESS'. Treat QUEUED as pending (keep polling).
+          const respStatus = (response && (response.status as string)) || null;
+
+          if (respStatus === 'SUCCESS') {
             setStatus('completed');
             stopPolling();
             options.onSuccess?.(response);
-          } else if (response.error) {
-            setError(response.error);
+          } else if (respStatus === 'FAILED') {
+            const errMsg = response.error || 'Payment failed';
+            setError(errMsg);
             stopPolling();
-            options.onError?.(response.error);
+            options.onError?.(errMsg);
+          } else {
+            // QUEUED or other pending statuses -> keep polling
+            console.log('[polling] Payment pending (status=', respStatus, '), continuing to poll');
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Unknown error';

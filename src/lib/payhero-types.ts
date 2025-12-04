@@ -15,6 +15,9 @@ export interface StkPushResponse {
   response_description?: string;
   error?: string;
   status?: number;
+  // PayHero may return these fields in the STK response
+  reference?: string;
+  external_reference?: string;
 }
 
 export interface StatusCheckResponse {
