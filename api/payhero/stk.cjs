@@ -2,10 +2,23 @@
 // Proxies STK push requests to PayHero. Keep PayHero credentials in Vercel Environment Variables.
 
 module.exports = async (req, res) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   try {
     console.log('[api/payhero/stk] invoked');
@@ -39,18 +52,27 @@ module.exports = async (req, res) => {
     let phone = body.phone_number || body.phone || body.PhoneNumber || '';
     const channel_id = Number(body.channel_id || DEFAULT_CHANNEL_ID);
     const provider = (body.provider || 'm-pesa').toString().toLowerCase();
-    const external_reference = body.external_reference || body.reference || body.externalReference || `TX${Date.now()}`;
-    const customer_name = body.customer_name || body.customerName || '';
+    // Handle account_reference from frontend (maps to external_reference for PayHero)
+    const external_reference = body.external_reference || body.account_reference || body.reference || body.externalReference || `TX${Date.now()}`;
+    const customer_name = body.customer_name || body.customerName || 'Customer';
     // Prefer explicit body callback, then env var, otherwise fall back to the detected origin + standard path
     const callback_url = (body.callback_url && body.callback_url.trim()) || CALLBACK_URL || (origin ? `${origin}/api/payment-callback` : '');
 
-    if (!amount || !phone) {
-      return res.status(400).json({ error: 'Missing required fields: amount and phone_number' });
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Missing or invalid amount' });
+    }
+    
+    if (!phone) {
+      return res.status(400).json({ error: 'Missing required field: phone or phone_number' });
     }
 
-    // If phone is in international format (starts with 254), convert to local 07... format as PayHero docs show
+    // Normalize phone number: convert international format (254...) to local format (07...)
+    // Also handle local format that might already start with 0
     if (phone.startsWith('254')) {
       phone = '0' + phone.slice(3);
+    } else if (!phone.startsWith('0')) {
+      // If it doesn't start with 0 or 254, assume it needs 0 prefix
+      phone = '0' + phone;
     }
 
     const payload = {
@@ -63,13 +85,20 @@ module.exports = async (req, res) => {
       callback_url: callback_url,
     };
 
+    // Ensure Authorization header has Basic prefix if not already present
+    let authHeader = AUTH;
+    if (AUTH && !AUTH.startsWith('Basic ')) {
+      authHeader = `Basic ${AUTH}`;
+    }
+
     // Perform outbound call to PayHero
     console.log('[api/payhero/stk] forwarding to:', `${PAYHERO_BASE}/api/v2/payments`, 'payload:', payload);
     const fetchRes = await fetch(`${PAYHERO_BASE}/api/v2/payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': AUTH,
+        'Authorization': authHeader,
+        'Accept': 'application/json',
       },
       body: JSON.stringify(payload),
     });
@@ -84,8 +113,23 @@ module.exports = async (req, res) => {
 
     console.log('[api/payhero/stk] PayHero status:', fetchRes.status, 'response:', data);
 
-    // Mirror status and body back to the caller
-    return res.status(fetchRes.status).json(data);
+    // Return success response with proper structure matching frontend expectations
+    if (fetchRes.ok) {
+      return res.status(200).json({
+        success: true,
+        checkout_request_id: data.request_id || data.checkout_request_id,
+        request_id: data.request_id,
+        ...data,
+      });
+    } else {
+      // Return error response with proper structure
+      return res.status(fetchRes.status).json({
+        success: false,
+        error: data.error || data.message || data.error_message || `PayHero API error: ${fetchRes.status}`,
+        status: fetchRes.status,
+        ...data,
+      });
+    }
   } catch (err) {
     // Log full error and return stack to help debug server errors in Vercel logs
     console.error('[api/payhero/stk] Error:', err && err.stack ? err.stack : err);
