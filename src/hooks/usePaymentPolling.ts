@@ -79,15 +79,25 @@ export const usePaymentPolling = (options: UsePaymentPollingOptions = {}) => {
           }
 
           // PayHero returns a `status` string: QUEUED, SUCCESS, FAILED
-          // Only treat as success when status === 'SUCCESS'. Treat QUEUED as pending (keep polling).
-          const respStatus = (response && (response.status as string)) || null;
+          // Also check for success/paid flags in the response
+          const respStatus = response?.status ? String(response.status).toUpperCase() : null;
+          const isPaid = response?.paid === true || response?.success === true;
+          const isSuccess = respStatus === 'SUCCESS' || (isPaid && respStatus !== 'FAILED');
 
-          if (respStatus === 'SUCCESS') {
+          console.log('[polling] Status check:', { 
+            status: respStatus, 
+            paid: response?.paid, 
+            success: response?.success,
+            isSuccess 
+          });
+
+          if (isSuccess) {
+            console.log('[polling] Payment successful!');
             setStatus('completed');
             stopPolling();
             options.onSuccess?.(response);
           } else if (respStatus === 'FAILED') {
-            const errMsg = response.error || 'Payment failed';
+            const errMsg = response.error || response.error_message || 'Payment failed';
             setError(errMsg);
             stopPolling();
             options.onError?.(errMsg);
