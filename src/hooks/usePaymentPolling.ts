@@ -79,20 +79,34 @@ export const usePaymentPolling = (options: UsePaymentPollingOptions = {}) => {
           }
 
           // PayHero returns a `status` string: QUEUED, SUCCESS, FAILED
-          // Also check for success/paid flags in the response
-          const respStatus = response?.status ? String(response.status).toUpperCase() : null;
-          const isPaid = response?.paid === true || response?.success === true;
-          const isSuccess = respStatus === 'SUCCESS' || (isPaid && respStatus !== 'FAILED');
+          // Only treat as success when PayHero explicitly confirms payment is successful
+          // This means status must be 'SUCCESS' (not QUEUED, which means waiting for PIN)
+          const respStatus = response?.status ? String(response.status).toUpperCase().trim() : null;
+          
+          // Strict success check: Only SUCCESS status means payment is confirmed
+          // QUEUED = waiting for user to enter PIN
+          // SUCCESS = user entered PIN and payment is confirmed
+          // FAILED = payment failed
+          const isSuccess = respStatus === 'SUCCESS';
+          
+          // Additional check: if paid flag is true AND status is not QUEUED or null, also consider success
+          // This handles cases where PayHero might use different field names
+          const isConfirmedPaid = (response?.paid === true || response?.success === true) 
+            && respStatus !== 'QUEUED' 
+            && respStatus !== null
+            && respStatus !== 'FAILED';
 
           console.log('[polling] Status check:', { 
             status: respStatus, 
             paid: response?.paid, 
             success: response?.success,
-            isSuccess 
+            isSuccess,
+            isConfirmedPaid,
+            finalSuccess: isSuccess || isConfirmedPaid
           });
 
-          if (isSuccess) {
-            console.log('[polling] Payment successful!');
+          if (isSuccess || isConfirmedPaid) {
+            console.log('[polling] Payment confirmed successful by PayHero!');
             setStatus('completed');
             stopPolling();
             options.onSuccess?.(response);
@@ -102,8 +116,9 @@ export const usePaymentPolling = (options: UsePaymentPollingOptions = {}) => {
             stopPolling();
             options.onError?.(errMsg);
           } else {
-            // QUEUED or other pending statuses -> keep polling
-            console.log('[polling] Payment pending (status=', respStatus, '), continuing to poll');
+            // QUEUED, null, or other pending statuses -> keep polling
+            // This means user hasn't entered PIN yet or payment is still processing
+            console.log('[polling] Payment pending (status=', respStatus, '), waiting for user to enter PIN or payment confirmation...');
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Unknown error';
