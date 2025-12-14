@@ -1,7 +1,7 @@
 // Vercel Serverless function: /api/payment-callback
 // Receives webhook callbacks from PayHero for payment status updates
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,5 +35,4 @@ module.exports = async (req, res) => {
       error: error.message 
     });
   }
-};
-
+}

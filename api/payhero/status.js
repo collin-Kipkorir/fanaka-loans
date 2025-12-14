@@ -1,7 +1,7 @@
 // Vercel Serverless function: /api/payhero/status
 // Queries PayHero for payment status by reference
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
 	// Handle CORS preflight
 	if (req.method === 'OPTIONS') {
 		res.setHeader('Access-Control-Allow-Origin', '*');
@@ -50,5 +50,4 @@ module.exports = async (req, res) => {
 		console.error('[api/payhero/status] error:', err.message);
 		return res.status(500).json({ error: err.message });
 	}
-};
-
+}
