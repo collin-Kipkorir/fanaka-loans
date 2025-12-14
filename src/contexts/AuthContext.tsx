@@ -243,12 +243,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const payCollateralFee = async (loanId: string, amount: number): Promise<{ success: boolean }> => {
-    // TODO: Replace with M-Pesa STK Push integration
-    // Use Supabase Edge Functions to integrate with M-Pesa API
-    // Update loan status in database after successful payment
-    
-    // Simulate STK Push payment - REMOVE when using Supabase
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Update loan status to 'in_processing' after successful payment confirmation
+    // Payment is already confirmed by PayHero before this function is called
     
     setLoans(prev => {
       const updated = prev.map(loan => 

@@ -23,9 +23,24 @@ export const CollateralPayment: React.FC<CollateralPaymentProps> = ({ onBack }) 
   const [paymentReference, setPaymentReference] = useState('');
   const { currentLoan, payCollateralFee, addNotification } = useAuth();
   const { isPolling, elapsedSeconds, error, startPolling, resetPolling } = usePaymentPolling({
-    onSuccess: (data) => {
-      setTransactionState('success');
-      addNotification('Payment successful!', 'success');
+    onSuccess: async (data) => {
+      // Update loan status to 'in_processing' (processing) after successful payment
+      // This will remove the action modal since it only shows for 'pending' status
+      if (currentLoan) {
+        try {
+          await payCollateralFee(currentLoan.id, currentLoan.processingFee || 0);
+          setTransactionState('success');
+          addNotification('Payment successful! Loan is now being processed.', 'success');
+        } catch (error) {
+          console.error('Failed to update loan status:', error);
+          // Still show success even if status update fails
+          setTransactionState('success');
+          addNotification('Payment successful!', 'success');
+        }
+      } else {
+        setTransactionState('success');
+        addNotification('Payment successful!', 'success');
+      }
     },
     onTimeout: () => {
       setTransactionState('timeout');
