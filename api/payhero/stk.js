@@ -26,14 +26,22 @@ module.exports = async (req, res) => {
     // Log whether key env vars are present (don't print secrets)
     console.log('[api/payhero/stk] env: PAYHERO_BASE_URL=', !!process.env.PAYHERO_BASE_URL, 'PAYHERO_AUTH_TOKEN=', !!process.env.PAYHERO_AUTH_TOKEN, 'PAYHERO_CHANNEL_ID=', !!process.env.PAYHERO_CHANNEL_ID);
 
-    // Normalize / inspect incoming body safely for debugging
-    let incomingBody = req.body;
+    // Parse request body - Vercel may provide it as a string or already parsed
+    let body = {};
     try {
-      if (typeof incomingBody === 'string') incomingBody = JSON.parse(incomingBody);
+      if (typeof req.body === 'string') {
+        body = JSON.parse(req.body);
+      } else if (req.body && typeof req.body === 'object') {
+        body = req.body;
+      } else if (req.body) {
+        // Try to parse if it's a Buffer or other type
+        body = JSON.parse(String(req.body));
+      }
     } catch (e) {
-      console.log('[api/payhero/stk] failed to parse string body, leaving raw');
+      console.error('[api/payhero/stk] Error parsing body:', e.message);
+      return res.status(400).json({ error: 'Invalid JSON in request body', details: e.message });
     }
-    console.log('[api/payhero/stk] incoming body:', incomingBody);
+    console.log('[api/payhero/stk] parsed body:', body);
 
     // Reconstruct full request origin (Vercel supplies x-forwarded-host and x-forwarded-proto)
     const forwardedHost = req.headers['x-forwarded-host'] || req.headers.host || '';
@@ -47,10 +55,24 @@ module.exports = async (req, res) => {
     const DEFAULT_CHANNEL_ID = process.env.PAYHERO_CHANNEL_ID;
     const CALLBACK_URL = process.env.PAYHERO_CALLBACK_URL || '';
 
-    const body = req.body || {};
+    if (!AUTH) {
+      console.error('[api/payhero/stk] PAYHERO_AUTH_TOKEN is not set');
+      return res.status(500).json({ error: 'Server configuration error: PAYHERO_AUTH_TOKEN not set' });
+    }
+
+    if (!DEFAULT_CHANNEL_ID) {
+      console.error('[api/payhero/stk] PAYHERO_CHANNEL_ID is not set');
+      return res.status(500).json({ error: 'Server configuration error: PAYHERO_CHANNEL_ID not set' });
+    }
+    
     const amount = Number(body.amount || body.Amount);
     let phone = body.phone_number || body.phone || body.PhoneNumber || '';
     const channel_id = Number(body.channel_id || DEFAULT_CHANNEL_ID);
+    
+    if (isNaN(channel_id) || channel_id <= 0) {
+      console.error('[api/payhero/stk] Invalid channel_id:', channel_id);
+      return res.status(500).json({ error: 'Server configuration error: Invalid PAYHERO_CHANNEL_ID' });
+    }
     const provider = (body.provider || 'm-pesa').toString().toLowerCase();
     // Handle account_reference from frontend (maps to external_reference for PayHero)
     const external_reference = body.external_reference || body.account_reference || body.reference || body.externalReference || `TX${Date.now()}`;
@@ -132,10 +154,17 @@ module.exports = async (req, res) => {
     }
   } catch (err) {
     // Log full error and return stack to help debug server errors in Vercel logs
-    console.error('[api/payhero/stk] Error:', err && err.stack ? err.stack : err);
-    const payload = { error: err && err.message ? err.message : String(err) };
-    if (process.env.NODE_ENV !== 'production') payload.stack = err && err.stack;
-    // Also include stack in the body for immediate debugging (remove later)
+    console.error('[api/payhero/stk] Error:', err);
+    console.error('[api/payhero/stk] Error stack:', err && err.stack ? err.stack : 'No stack trace');
+    const payload = { 
+      success: false,
+      error: err && err.message ? err.message : String(err),
+      type: err && err.name ? err.name : 'UnknownError'
+    };
+    // Include stack in production for debugging (can remove later)
+    if (err && err.stack) {
+      payload.stack = err.stack;
+    }
     return res.status(500).json(payload);
   }
 }
