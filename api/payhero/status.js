@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const PAYHERO_BASE = process.env.PAYHERO_BASE_URL || 'https://api.payhero.co.ke';
+    const PAYHERO_BASE = process.env.PAYHERO_BASE_URL || 'https://backend.payhero.co.ke';
     const AUTH = process.env.PAYHERO_AUTH_TOKEN || '';
     const reference = req.query.reference || '';
 
@@ -31,7 +31,8 @@ export default async function handler(req, res) {
       authHeader = `Basic ${AUTH}`;
     }
 
-    const url = `${PAYHERO_BASE}/api/v2/payments/${encodeURIComponent(reference)}`;
+    // Use PayHero's transaction-status endpoint
+    const url = `${PAYHERO_BASE}/api/v2/transaction-status?reference=${encodeURIComponent(reference)}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
