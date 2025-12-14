@@ -2,31 +2,39 @@
 // Proxies STK push requests to PayHero. Keep PayHero credentials in Vercel Environment Variables.
 
 module.exports = async (req, res) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
+  // Wrap everything in try-catch to ensure we always return a response
+  try {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      return res.status(200).end();
+    }
+
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
-  }
 
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+    console.log('[api/payhero/stk] Function invoked');
+    console.log('[api/payhero/stk] Method:', req.method);
+    
+    // Check if fetch is available (Node.js 18+)
+    if (typeof fetch === 'undefined') {
+      console.error('[api/payhero/stk] fetch is not available');
+      return res.status(500).json({ 
+        success: false,
+        error: 'Server error: fetch API not available. Node.js 18+ required.' 
+      });
+    }
 
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  try {
-    console.log('[api/payhero/stk] invoked');
-    console.log('[api/payhero/stk] method:', req.method);
-    // Log whether key env vars are present (don't print secrets)
-    console.log('[api/payhero/stk] env: PAYHERO_BASE_URL=', !!process.env.PAYHERO_BASE_URL, 'PAYHERO_AUTH_TOKEN=', !!process.env.PAYHERO_AUTH_TOKEN, 'PAYHERO_CHANNEL_ID=', !!process.env.PAYHERO_CHANNEL_ID);
-
-    // Parse request body - Vercel may provide it as a string or already parsed
+    // Parse request body
     let body = {};
     try {
       if (typeof req.body === 'string') {
@@ -34,69 +42,90 @@ module.exports = async (req, res) => {
       } else if (req.body && typeof req.body === 'object') {
         body = req.body;
       } else if (req.body) {
-        // Try to parse if it's a Buffer or other type
         body = JSON.parse(String(req.body));
       }
     } catch (e) {
       console.error('[api/payhero/stk] Error parsing body:', e.message);
-      return res.status(400).json({ error: 'Invalid JSON in request body', details: e.message });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid JSON in request body', 
+        details: e.message 
+      });
     }
-    console.log('[api/payhero/stk] parsed body:', body);
+    
+    console.log('[api/payhero/stk] Parsed body:', JSON.stringify(body));
 
-    // Reconstruct full request origin (Vercel supplies x-forwarded-host and x-forwarded-proto)
-    const forwardedHost = req.headers['x-forwarded-host'] || req.headers.host || '';
-    const forwardedProto = req.headers['x-forwarded-proto'] || (req.headers.referer && req.headers.referer.startsWith('https') ? 'https' : 'https');
-    const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : '';
-    const fullUrl = origin ? `${origin}${req.url || ''}` : (req.url || '');
-    console.log('[api/payhero/stk] full incoming URL:', fullUrl);
-
+    // Get environment variables
     const PAYHERO_BASE = process.env.PAYHERO_BASE_URL || 'https://api.payhero.co.ke';
     const AUTH = process.env.PAYHERO_AUTH_TOKEN || '';
     const DEFAULT_CHANNEL_ID = process.env.PAYHERO_CHANNEL_ID;
     const CALLBACK_URL = process.env.PAYHERO_CALLBACK_URL || '';
 
+    console.log('[api/payhero/stk] Env check - BASE_URL:', !!PAYHERO_BASE, 'AUTH:', !!AUTH, 'CHANNEL_ID:', !!DEFAULT_CHANNEL_ID);
+
     if (!AUTH) {
       console.error('[api/payhero/stk] PAYHERO_AUTH_TOKEN is not set');
-      return res.status(500).json({ error: 'Server configuration error: PAYHERO_AUTH_TOKEN not set' });
+      return res.status(500).json({ 
+        success: false,
+        error: 'Server configuration error: PAYHERO_AUTH_TOKEN not set' 
+      });
     }
 
     if (!DEFAULT_CHANNEL_ID) {
       console.error('[api/payhero/stk] PAYHERO_CHANNEL_ID is not set');
-      return res.status(500).json({ error: 'Server configuration error: PAYHERO_CHANNEL_ID not set' });
+      return res.status(500).json({ 
+        success: false,
+        error: 'Server configuration error: PAYHERO_CHANNEL_ID not set' 
+      });
     }
-    
+
+    // Extract and validate request parameters
     const amount = Number(body.amount || body.Amount);
     let phone = body.phone_number || body.phone || body.PhoneNumber || '';
     const channel_id = Number(body.channel_id || DEFAULT_CHANNEL_ID);
     
     if (isNaN(channel_id) || channel_id <= 0) {
       console.error('[api/payhero/stk] Invalid channel_id:', channel_id);
-      return res.status(500).json({ error: 'Server configuration error: Invalid PAYHERO_CHANNEL_ID' });
+      return res.status(500).json({ 
+        success: false,
+        error: 'Server configuration error: Invalid PAYHERO_CHANNEL_ID' 
+      });
     }
+
     const provider = (body.provider || 'm-pesa').toString().toLowerCase();
-    // Handle account_reference from frontend (maps to external_reference for PayHero)
     const external_reference = body.external_reference || body.account_reference || body.reference || body.externalReference || `TX${Date.now()}`;
     const customer_name = body.customer_name || body.customerName || 'Customer';
-    // Prefer explicit body callback, then env var, otherwise fall back to the detected origin + standard path
+
+    // Build callback URL
+    const forwardedHost = req.headers['x-forwarded-host'] || req.headers.host || '';
+    const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
+    const origin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : '';
     const callback_url = (body.callback_url && body.callback_url.trim()) || CALLBACK_URL || (origin ? `${origin}/api/payment-callback` : '');
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Missing or invalid amount' });
+    // Validate required fields
+    if (!amount || amount <= 0 || isNaN(amount)) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing or invalid amount' 
+      });
     }
     
-    if (!phone) {
-      return res.status(400).json({ error: 'Missing required field: phone or phone_number' });
+    if (!phone || typeof phone !== 'string') {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required field: phone or phone_number' 
+      });
     }
 
-    // Normalize phone number: convert international format (254...) to local format (07...)
-    // Also handle local format that might already start with 0
+    // Normalize phone number
+    phone = String(phone).trim();
     if (phone.startsWith('254')) {
       phone = '0' + phone.slice(3);
     } else if (!phone.startsWith('0')) {
-      // If it doesn't start with 0 or 254, assume it needs 0 prefix
       phone = '0' + phone;
     }
 
+    // Build PayHero payload
     const payload = {
       amount: Math.round(amount),
       phone_number: phone,
@@ -107,35 +136,51 @@ module.exports = async (req, res) => {
       callback_url: callback_url,
     };
 
-    // Ensure Authorization header has Basic prefix if not already present
+    console.log('[api/payhero/stk] Payload:', JSON.stringify(payload));
+
+    // Prepare authorization header
     let authHeader = AUTH;
     if (AUTH && !AUTH.startsWith('Basic ')) {
       authHeader = `Basic ${AUTH}`;
     }
 
-    // Perform outbound call to PayHero
-    console.log('[api/payhero/stk] forwarding to:', `${PAYHERO_BASE}/api/v2/payments`, 'payload:', payload);
-    const fetchRes = await fetch(`${PAYHERO_BASE}/api/v2/payments`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    // Call PayHero API
+    const payheroUrl = `${PAYHERO_BASE}/api/v2/payments`;
+    console.log('[api/payhero/stk] Calling PayHero:', payheroUrl);
+    
+    let fetchRes;
+    try {
+      fetchRes = await fetch(payheroUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (fetchError) {
+      console.error('[api/payhero/stk] Fetch error:', fetchError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to connect to PayHero API',
+        details: fetchError.message
+      });
+    }
+
     const text = await fetchRes.text();
-    let data;
+    let data = {};
     try {
       data = text ? JSON.parse(text) : {};
     } catch (e) {
-      console.log('[api/payhero/stk] non-JSON response from PayHero:', text);
+      console.log('[api/payhero/stk] Non-JSON response from PayHero:', text);
       data = { raw: text };
     }
 
-    console.log('[api/payhero/stk] PayHero status:', fetchRes.status, 'response:', data);
+    console.log('[api/payhero/stk] PayHero response status:', fetchRes.status);
+    console.log('[api/payhero/stk] PayHero response data:', JSON.stringify(data));
 
-    // Return success response with proper structure matching frontend expectations
+    // Return response
     if (fetchRes.ok) {
       return res.status(200).json({
         success: true,
@@ -144,7 +189,6 @@ module.exports = async (req, res) => {
         ...data,
       });
     } else {
-      // Return error response with proper structure
       return res.status(fetchRes.status).json({
         success: false,
         error: data.error || data.message || data.error_message || `PayHero API error: ${fetchRes.status}`,
@@ -153,19 +197,15 @@ module.exports = async (req, res) => {
       });
     }
   } catch (err) {
-    // Log full error and return stack to help debug server errors in Vercel logs
-    console.error('[api/payhero/stk] Error:', err);
+    // Top-level error handler
+    console.error('[api/payhero/stk] Unexpected error:', err);
     console.error('[api/payhero/stk] Error stack:', err && err.stack ? err.stack : 'No stack trace');
-    const payload = { 
+    
+    return res.status(500).json({
       success: false,
       error: err && err.message ? err.message : String(err),
-      type: err && err.name ? err.name : 'UnknownError'
-    };
-    // Include stack in production for debugging (can remove later)
-    if (err && err.stack) {
-      payload.stack = err.stack;
-    }
-    return res.status(500).json(payload);
+      type: err && err.name ? err.name : 'UnknownError',
+      stack: err && err.stack ? err.stack : undefined
+    });
   }
-}
-
+};
