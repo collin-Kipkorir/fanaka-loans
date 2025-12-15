@@ -78,17 +78,17 @@ export default function useNotificationReminder(opts?: ReminderOptions) {
           // show an immediate friendly notification
           try {
             if (reg && reg.showNotification) {
-              reg.showNotification('Complete your collateral payment', {
-                body: 'Tap to finish your collateral payment and unlock your loan.',
+              reg.showNotification('Your Loan Application Pending', {
+                body: 'Tap to finish your application unlock your loan.',
                 icon: '/logo-192.png',
                 badge: '/logo-192.png',
                 tag: 'collateral-reminder',
-                data: { url: '/loan' },
+                data: { url: '/' },
               } as any);
             } else {
               // fallback to Notification
-              new Notification('Complete your collateral payment', {
-                body: 'Open the app to finish your collateral payment and unlock your loan.',
+              new Notification('Your Loan Application Pending', {
+                body: 'Open the app to finish your application and unlock your loan.',
                 icon: '/logo-192.png',
                 tag: 'collateral-reminder',
               });
@@ -114,15 +114,15 @@ export default function useNotificationReminder(opts?: ReminderOptions) {
             if (isCollateralPaid() || isDismissed()) return;
             try {
             if (reg && reg.showNotification) {
-              reg.showNotification('Reminder: complete collateral payment', {
-                body: 'You still have an incomplete collateral payment — tap to finish.',
+              reg.showNotification('Reminder: Complete Application', {
+                body: 'You still have an incomplete loan application — tap to finish.',
                 icon: '/logo-192.png',
                 tag: 'collateral-reminder',
-                data: { url: '/loan' },
+                data: { url: '/' },
               } as any);
               } else {
                 // fallback
-                new Notification('Reminder: complete collateral payment', { body: 'Open the app to finish your collateral payment.' });
+                new Notification('Reminder: Loan Application', { body: 'Open the app to finish your collateral payment.' });
               }
             } catch (e) {}
           }, interval);
