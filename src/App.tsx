@@ -7,10 +7,16 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import useNotificationReminder from "./hooks/useNotificationReminder";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  // initialize notification reminders for installed PWA
+  // schedule reminders every 30 minutes (30 * 60 * 1000 ms)
+  useNotificationReminder({ intervalMs: 30 * 60 * 1000 });
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
@@ -27,6 +33,7 @@ const App = () => (
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
