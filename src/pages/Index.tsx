@@ -11,6 +11,7 @@ import { CollateralPayment } from '@/components/payment/CollateralPayment';
 import { LoanHistory } from '@/components/loan/LoanHistory';
 import { Notification } from '@/components/ui/notification';
 import { LoanApprovalToast } from '@/components/landing/LoanApprovalToast';
+import PushSubscribe from '@/components/ui/PushSubscribe';
 
 type Screen = 'landing' | 'login' | 'register' | 'otp' | 'dashboard' | 'apply' | 'repayment' | 'collateral-payment' | 'history';
 
@@ -132,6 +133,9 @@ const Index = () => {
   return (
     <>
       <LoanApprovalToast />
+      <div style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 1000 }}>
+        <PushSubscribe />
+      </div>
       {renderScreen()}
       
       {/* Notifications */}
