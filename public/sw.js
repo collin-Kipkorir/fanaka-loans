@@ -19,7 +19,6 @@ async function showCollateralReminder(data = {}) {
     icon: '/logo-192.png',
     badge: '/logo-192.png',
     tag: 'collateral-reminder',
-    renotify: true,
     data: data,
   }, data.options || {});
 
@@ -51,13 +50,32 @@ self.addEventListener('periodicsync', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+  // Resolve relative URLs against the service worker origin
+  const rawUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+  let url;
+  try {
+    url = new URL(rawUrl, self.location.origin).href;
+  } catch (e) {
+    url = new URL('/', self.location.origin).href;
+  }
+
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsArr) => {
-      for (const client of clientsArr) {
-        if (client.url === url && 'focus' in client) return client.focus();
+    (async () => {
+      const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      // Try to focus an existing client and navigate it if possible
+      for (const client of allClients) {
+        try {
+          if ('focus' in client) await client.focus();
+          if (client.url && new URL(client.url).origin === new URL(url).origin && 'navigate' in client) {
+            // @ts-ignore navigate may exist on WindowClient
+            return client.navigate(url);
+          }
+        } catch (e) {
+          // ignore and try next
+        }
       }
+      // No existing client matched — open a new window/tab
       if (self.clients.openWindow) return self.clients.openWindow(url);
-    })
+    })()
   );
 });
