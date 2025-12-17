@@ -54,8 +54,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister, on
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-soft">
         <CardHeader className="text-center space-y-2">
-          <img src={Logo} alt="Fanaka logo" className="w-16 h-16 rounded-full object-cover mx-auto" />
-          <CardTitle className="text-2xl font-bold text-foreground">Welcome to Fanaka</CardTitle>
+          <img src={Logo} alt="Nyota logo" className="w-16 h-16 rounded-full object-cover mx-auto" />
+          <CardTitle className="text-2xl font-bold text-foreground">Welcome to Nyota Funds</CardTitle>
           <p className="text-muted-foreground">Your trusted loan partner in Kenya</p>
         </CardHeader>
         
@@ -116,7 +116,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister, on
           
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              New to Fanaka?{' '}
+              New to Nyota Funds?{' '}
               <button
                 onClick={onSwitchToRegister}
                 className="text-primary font-medium hover:underline"

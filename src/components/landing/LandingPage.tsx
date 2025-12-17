@@ -32,7 +32,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       <section className="relative z-10 container mx-auto px-4 pt-16 pb-24 text-center">
         <div className="max-w-4xl mx-auto space-y-8">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-primary animate-fade-in">
-            FANAKA LOANS
+            NYOTA FUNDS
           </h1>
           
           <p className="text-lg sm:text-xl md:text-2xl text-primary/90 animate-fade-in-delay">
@@ -141,7 +141,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             Ready to Get Started?
           </h2>
           <p className="text-lg text-muted-foreground">
-            Join thousands of satisfied customers who trust Fanaka Loans
+            Join thousands of satisfied customers who trust Nyota Funds
           </p>
           <Button
             size="lg"
@@ -156,7 +156,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       {/* Footer */}
       <footer className="relative z-10 border-t border-border py-8">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>&copy; 2024 Fanaka Loans. All rights reserved.</p>
+          <p>&copy; 2024 Nyota Funds. All rights reserved.</p>
         </div>
       </footer>
 

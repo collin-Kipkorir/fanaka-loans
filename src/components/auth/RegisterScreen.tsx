@@ -101,8 +101,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin,
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-soft">
         <CardHeader className="text-center space-y-2">
-          <img src={Logo} alt="Fanaka logo" className="w-16 h-16 rounded-full object-cover mx-auto" />
-          <CardTitle className="text-2xl font-bold text-foreground">Join Fanaka</CardTitle>
+          <img src={Logo} alt="Nyota logo" className="w-16 h-16 rounded-full object-cover mx-auto" />
+          <CardTitle className="text-2xl font-bold text-foreground">Join Nyota Funds</CardTitle>
           <p className="text-muted-foreground">Create your account to get started</p>
         </CardHeader>
         
