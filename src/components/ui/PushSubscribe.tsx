@@ -16,6 +16,9 @@ const VAPID_PUBLIC = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
 export default function PushSubscribe() {
   const [status, setStatus] = useState<string>('idle');
 
+  // Don't show the idle prompt on screen (hide "Enable push reminders" when idle)
+  if (status === 'idle') return null;
+
   async function subscribe() {
     if (!('serviceWorker' in navigator)) return setStatus('no-sw');
     if (!('PushManager' in window)) return setStatus('no-push');
